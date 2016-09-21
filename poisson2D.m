@@ -23,7 +23,7 @@ close all
 % Generate 2D mesh on unit square
 len = 1;
 wid = 1;
-nom = wid/10;   % nominal edge width of triangles (DistMesh uses for 
+nom = wid/5;   % nominal edge width of triangles (DistMesh uses for 
                 % generation, is more than likely smaller than this)
 
 % Specify distance function for geometry (rectangular waveguide)
@@ -101,7 +101,7 @@ end
 % Dirichlet Boundary Conditions: U(x,y) = 0 at all boundary nodes (in b)
 % Set all boundary rows and columns of K and F to be zero
 K(b,:) = 0;
-K(:,b) = 0;
+% K(:,b) = 0;
 F(b) = 0;
 
 % Insert identity matrix into boundary submatrix of K
@@ -117,6 +117,7 @@ F(b) = 0;
 %   represented in the resulting first equation in the sytem (here, it
 %   seems, that is U(1,1) = 0). Otherwise some of the rows of K are
 %   trivial (i.e. 0 = 0).
+
 K(b,b) = speye(length(b),length(b));
 
 % Solve system of equations 
