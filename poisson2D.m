@@ -1,4 +1,4 @@
-% FEM Study Code - Poisson's Equation (U_xx + U_yy = f) on a Unit Square
+% FEM Study Code - Poisson's Equation (-U_xx - U_yy = f) on a Unit Square
 % Author: Casey Tyler Icenhour
 % Organization: North Carolina State Univ./Oak Ridge National Laboratory
 % September 2016
