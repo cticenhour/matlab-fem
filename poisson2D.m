@@ -126,3 +126,19 @@ U = K\F;
 % Plot solution
 trisurf(t,p(:,1),p(:,2),0*p(:,1),U,'edgecolor','k','facecolor','interp');
 view(2),axis equal,colorbar
+title('FEM solution')
+
+% Generate and plot analytic solution on triangular mesh
+U_analytic = analyticFXN_poisson2D(p,50);
+
+figure
+trisurf(t,p(:,1),p(:,2),0*p(:,1),U_analytic,'edgecolor','k','facecolor','interp')
+view(2),axis equal,colorbar
+title('Analytic solution to 50 terms in infinite series');
+
+two_norm_error = norm(U_analytic-U,2)
+
+% figure
+% trisurf(t,p(:,1),p(:,2),0*p(:,1),U_analytic-U,'edgecolor','k','facecolor','interp')
+% view(2),axis equal,colorbar
+% title('Absolute error')
