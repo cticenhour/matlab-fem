@@ -61,38 +61,47 @@ for i = 1:num_triangles
             gradY_r = linear_basis_coefficients(3,r);
             gradX_s = linear_basis_coefficients(2,s);
             gradY_s = linear_basis_coefficients(3,s);
+            % THERE IS AN ERROR HERE SOMEWHERE
+            %integral = triangle_area*(gradX_r*gradX_s ...
+            %    + gradX_r*gradY_s + gradY_r*gradX_s + gradY_r*gradY_s);
             
-            integral = triangle_area*(gradX_r*gradX_s ...
-                + gradX_r*gradY_s + gradY_r*gradX_s + gradY_r*gradY_s);
+            % More automated way of computing this for the time being...
+            check_r = linear_basis_coefficients(2:3,r);
+            check_s = linear_basis_coefficients(2:3,s);
+            integral = triangle_area*check_r'*check_s;
+            
+            %if integral_check ~= integral
+            %    pause 
+            %end
             
             if is_r_on_boundary == 0 && is_s_on_boundary == 0
                 
                 K(node_r,node_s) = K(node_r,node_s) + integral;
                   
-                f(node_r,1) = f(node_r,1) + triangle_area/3;
+                f(node_r) = f(node_r) + triangle_area/3;
                 
                 if r ~= s
                     K(node_s,node_r) = K(node_s,node_r) + integral;
                       
-                    f(node_s,1) = f(node_r,1) + triangle_area/3;
+                    f(node_s) = f(node_s) + triangle_area/3;
                 end
             elseif is_r_on_boundary == 1 && is_s_on_boundary == 0
                 K(node_s,node_r) = K(node_s,node_r) + integral;   
-                f(node_s,1) = f(node_s,1) + triangle_area/3;
+                f(node_s) = f(node_s) + triangle_area/3;
                 
                 K(node_r,node_r) = 1;    % Set K and f such that u(r,1) = 0
-                f(node_r,1) = 0;
-            elseif is_s_on_boundary == 1 && is_r_on_boundary == 0
+                f(node_r) = 0;
+            elseif is_r_on_boundary == 0 && is_s_on_boundary == 1
                 K(node_r,node_s) = K(node_r,node_s) + integral;
-                f(node_r,1) = f(node_r,1) + triangle_area/3;
+                f(node_r) = f(node_r) + triangle_area/3;
                 
-                K(node_s,node_s) = 1;   % Set K and f such that u(r,1) = 0
-                f(node_s,1) = 0;
+                K(node_s,node_s) = 1;   % Set K and f such that u(s,1) = 0
+                f(node_s) = 0;
             else
                 K(node_r,node_r) = 1;    % Set K and f such that u(r,1) = 0
-                f(node_r,1) = 0;         % for nodes r and s  
+                f(node_r) = 0;         % and u(s,1) = 0
                 K(node_s,node_s) = 1;    
-                f(node_s,1) = 0;
+                f(node_s) = 0;
             end
         end
     end
@@ -106,3 +115,18 @@ trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),u,...
     'edgecolor','k','facecolor','interp');
 view(2),axis equal,colorbar
 title('FEM solution')
+
+% Generate and plot analytic solution on triangular mesh
+u_analytic = analyticFXN_poisson2D(node_list,50);
+
+figure
+trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),u_analytic,'edgecolor','k','facecolor','interp')
+view(2),axis equal,colorbar
+title('Analytic solution to 50 terms in infinite series');
+
+two_norm_error = norm(u_analytic-u,2)
+
+% figure
+% trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),u_analytic-u,'edgecolor','k','facecolor','interp')
+% view(2),axis equal,colorbar
+% title('Absolute error')

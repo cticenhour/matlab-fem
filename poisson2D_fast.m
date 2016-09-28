@@ -23,13 +23,14 @@ close all
 % Generate 2D mesh on unit square
 len = 1;
 wid = 1;
-nom = wid/5;   % nominal edge width of triangles (DistMesh uses for 
+nom = wid/10;   % nominal edge width of triangles (DistMesh uses for 
                 % generation, is more than likely smaller than this)
 
 % Specify distance function for geometry (rectangular waveguide)
 fd=@(p) drectangle(p,0,wid,0,len);
 
 % Note: @huniform notes uniform edge length for triangles
+figure
 [p,t]=distmesh2d(fd,@huniform,nom,[0,0;wid,len],[0,0;wid,0;0,len;...
     wid,len]);
 
@@ -89,7 +90,7 @@ for i=1:T
     Ke = Area*grad'*grad;
     
     % Since f(x,y) = 1, the integral over the test function is just the
-    % area of the triangular pyramid of height 1
+    % volume of the triangular pyramid of height 1
     Fe = Area/3;
     
     % Assemble K and F
