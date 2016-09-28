@@ -30,7 +30,6 @@ nom = wid/10;   % nominal edge width of triangles (DistMesh uses for
 fd=@(p) drectangle(p,0,wid,0,len);
 
 % Note: @huniform notes uniform edge length for triangles
-figure
 [p,t]=distmesh2d(fd,@huniform,nom,[0,0;wid,len],[0,0;wid,0;0,len;...
     wid,len]);
 

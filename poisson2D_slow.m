@@ -7,7 +7,7 @@
 % September 27, 2016
 
 clear all
-%close all
+close all
 
 % Use DistMesh to create 2D triangular mesh
 length = 1;
@@ -21,7 +21,6 @@ important_pts = [0,0;width,0;0,length;width,length];
 
 % Note: @huniform refers to uniform mesh
 % See http://persson.berkeley.edu/distmesh/ for usage info
-figure
 [node_list, triangle_list] = distmesh2d(geo_dist_func,@huniform,...
     initial_edge_width,bounds,important_pts);
 
@@ -61,19 +60,9 @@ for i = 1:num_triangles
             gradY_r = linear_basis_coefficients(3,r);
             gradX_s = linear_basis_coefficients(2,s);
             gradY_s = linear_basis_coefficients(3,s);
-            % THERE IS AN ERROR HERE SOMEWHERE
-            %integral = triangle_area*(gradX_r*gradX_s ...
-            %    + gradX_r*gradY_s + gradY_r*gradX_s + gradY_r*gradY_s);
             
-            % More automated way of computing this for the time being...
-            check_r = linear_basis_coefficients(2:3,r);
-            check_s = linear_basis_coefficients(2:3,s);
-            integral = triangle_area*check_r'*check_s;
-            
-            %if integral_check ~= integral
-            %    pause 
-            %end
-            
+            integral = triangle_area*(gradX_r*gradX_s + gradY_r*gradY_s);
+
             if is_r_on_boundary == 0 && is_s_on_boundary == 0
                 
                 K(node_r,node_s) = K(node_r,node_s) + integral;
