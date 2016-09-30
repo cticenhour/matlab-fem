@@ -10,14 +10,14 @@ clear all
 close all
 
 % Use DistMesh to create 2D triangular mesh
-length = 1;
-width = 1;
-initial_edge_width = width/10;
+len = 1;
+wid = 1;
+initial_edge_width = wid/10;
 
-geo_dist_func = @(p) drectangle(p,0,width,0,length);
+geo_dist_func = @(p) drectangle(p,0,wid,0,len);
 
-bounds = [0,0;length,width];
-important_pts = [0,0;width,0;0,length;width,length];
+bounds = [0,0;len,wid];
+important_pts = [0,0;wid,0;0,len;wid,len];
 
 % Note: @huniform refers to uniform mesh
 % See http://persson.berkeley.edu/distmesh/ for usage info
@@ -30,9 +30,9 @@ edge_nodes = unique(boundary_edges);
 num_nodes = size(node_list,1);
 num_triangles = size(triangle_list,1);
 
-% Initialize parts of system Ku=f, where u is solution vector
+% Initialize parts of system KU=F, where u is solution vector
 K = zeros(num_nodes,num_nodes);
-f = zeros(num_nodes,1);
+F = zeros(num_nodes,1);
 
 % Applying element-oriented FEM algorithm to construct K and f 
 for i = 1:num_triangles
@@ -46,6 +46,8 @@ for i = 1:num_triangles
                          
     linear_basis_coefficients = inv(triangle_coord_matrix);
     triangle_area = abs(det(triangle_coord_matrix))/2;
+    
+    % CONSTRUCT K WITHOUT BOUNDARY CONDITIONS
     
     for r = 1:3
         for s = r:3
@@ -66,38 +68,48 @@ for i = 1:num_triangles
             if is_r_on_boundary == 0 && is_s_on_boundary == 0
                 
                 K(node_r,node_s) = K(node_r,node_s) + integral;
-                  
-                f(node_r) = f(node_r) + triangle_area/3;
                 
                 if r ~= s
-                    K(node_s,node_r) = K(node_s,node_r) + integral;
-                      
-                    f(node_s) = f(node_s) + triangle_area/3;
+                    K(node_s,node_r) = K(node_s,node_r) + integral;   
                 end
+                
             elseif is_r_on_boundary == 1 && is_s_on_boundary == 0
+                
                 K(node_s,node_r) = K(node_s,node_r) + integral;   
-                f(node_s) = f(node_s) + triangle_area/3;
                 
-                K(node_r,node_r) = 1;    % Set K and f such that u(r,1) = 0
-                f(node_r) = 0;
             elseif is_r_on_boundary == 0 && is_s_on_boundary == 1
-                K(node_r,node_s) = K(node_r,node_s) + integral;
-                f(node_r) = f(node_r) + triangle_area/3;
                 
-                K(node_s,node_s) = 1;   % Set K and f such that u(s,1) = 0
-                f(node_s) = 0;
-            else
-                K(node_r,node_r) = 1;    % Set K and f such that u(r,1) = 0
-                f(node_r) = 0;         % and u(s,1) = 0
-                K(node_s,node_s) = 1;    
-                f(node_s) = 0;
+                K(node_r,node_s) = K(node_r,node_s) + integral;
+
             end
+        end
+    end
+    
+    % CONSTRUCT F WITHOUT BOUNDARY CONDITIONS
+    
+    for r = 1:3
+        node_rF = current_nodes(r);
+        is_rF_on_boundary = sum(edge_nodes == node_rF);
+        
+        if is_rF_on_boundary == 0
+            
+            increment = triangle_area/3;
+            F(node_rF,1) = F(node_rF,1) + increment;
         end
     end
 end
 
+% Add boundary conditions to K and F
+
+for j = 1:length(edge_nodes)
+    BC_current_node = edge_nodes(j);
+    
+    K(BC_current_node,BC_current_node) = 1;
+    F(BC_current_node,1) = 0;
+end
+
 % Solve system of equations 
-u = K\f;
+u = K\F;
 
 % Plot solution
 trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),u,...
