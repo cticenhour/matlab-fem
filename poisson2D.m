@@ -158,6 +158,8 @@ if vectorized_method == 1
 elseif vectorized_method == 0
     title('FEM solution with loops')
 end
+xlabel('X')
+ylabel('Y')
 
 % Generate and plot analytic solution on triangular mesh
 U_analytic = analyticFXN_poisson2D(node_list,50);
@@ -166,8 +168,11 @@ figure
 trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),U_analytic,'edgecolor','k','facecolor','interp')
 view(2),axis equal,colorbar
 title('Analytic solution to 50 terms in infinite series');
+xlabel('X')
+ylabel('Y')
 
-two_norm_error = norm(U_analytic-U,2)
+RMS_error = sqrt(sum((U_analytic - U).^2)/length(U))
+%two_norm_error = norm(U_analytic-U,2)
 
 % figure
 % trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),U_analytic-U,'edgecolor','k','facecolor','interp')
