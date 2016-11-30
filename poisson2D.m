@@ -6,43 +6,58 @@
 %                                               Laboratory
 % September 2016
 
-clear all
-close all
+% clear all
+% close all
 
-% Switch to determine vectorized or non-vectorized solution method
+%=============================
+% SWITCHES
+%=============================
 
-vectorized_method = 0;
+vectorized_method = 0;  % vectorized = simplified/optimized for MATLAB
 
-% Generate 2D mesh using DistMesh (see http://persson.berkeley.edu/distmesh/
-% for more info)
-% KEY NOTES FOR DISTMESH
-% node_list = node positions -- N-by-2 array contains x,y coordinates for 
-%                               each of the N nodes
-% triangle_list = triangle indices -- row associated with each triangle has 
-%                                     3 integer entries to specify node 
-%                                     numbers corresponding to rows in 
-%                                     node_list
+mesh_program = 0; % distMesh = 1, Gmsh = 0
+    % NOTE: gmsh2matlab REQUIRES NODE, ELEMENT, AND EDGE TXT FILES TO BE 
+    %       CREATED FROM GMSH OUTPUT FILE
 
-len = 1;
-wid = 1;
-initial_edge_width = wid/10;
+MOOSE_comparison = 1;   % requires output data CSV file from MOOSE
 
-geo_dist_func = @(p) drectangle(p,0,wid,0,len);
+%=============================
 
-bounds = [0,0;len,wid];
-important_pts = [0,0;wid,0;0,len;wid,len];
+if mesh_program == 1
+    
+    % Generate 2D mesh using DistMesh (see 
+    % http://persson.berkeley.edu/distmesh for more info)
+    % KEY NOTES FOR DISTMESH
+    % node_list = node positions -- N-by-2 array contains x,y coordinates
+    %                               for each of the N nodes
+    % triangle_list = triangle indices -- row associated with each triangle 
+    %                                     has 3 integer entries to specify 
+    %                                     node numbers corresponding to 
+    %                                     rows in node_list
 
-% Note: @huniform refers to uniform mesh
-% See http://persson.berkeley.edu/distmesh/ for usage info
-[node_list, triangle_list] = distmesh2d(geo_dist_func,@huniform,...
-    initial_edge_width,bounds,important_pts);
+    len = 1;
+    wid = 1;
+    initial_edge_width = wid/10;
 
-boundary_edges = boundedges(node_list,triangle_list);
-edge_nodes = unique(boundary_edges);
+    geo_dist_func = @(p) drectangle(p,0,wid,0,len);
 
-num_nodes = size(node_list,1);
-num_triangles = size(triangle_list,1);
+    bounds = [0,0;len,wid];
+    important_pts = [0,0;wid,0;0,len;wid,len];
 
+    % Note: @huniform refers to uniform mesh
+    % See http://persson.berkeley.edu/distmesh/ for usage info
+    [node_list, triangle_list] = distmesh2d(geo_dist_func,@huniform,...
+        initial_edge_width,bounds,important_pts);
+
+    boundary_edges = boundedges(node_list,triangle_list);
+    edge_nodes = unique(boundary_edges);
+
+    num_nodes = size(node_list,1);
+    num_triangles = size(triangle_list,1);
+elseif mesh_program == 0
+    gmsh2matlab
+end
+    
 % Initialize parts of system KU=F, where u is solution vector
 K = zeros(num_nodes,num_nodes);
 F = zeros(num_nodes,1);
@@ -171,7 +186,7 @@ title('Analytic solution to 50 terms in infinite series');
 xlabel('X')
 ylabel('Y')
 
-RMS_error = sqrt(sum((U_analytic - U).^2)/length(U))
+RMS_analytic_error = sqrt(sum((U_analytic - U).^2)/length(U))
 %two_norm_error = norm(U_analytic-U,2)
 
 % figure
@@ -179,4 +194,15 @@ RMS_error = sqrt(sum((U_analytic - U).^2)/length(U))
 % view(2),axis equal,colorbar
 % title('Absolute error')
 
+if MOOSE_comparison == 1
+    sortMOOSEoutput
+    figure
+    trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),U_MOOSE,'edgecolor','k','facecolor','interp')
+    view(2),axis equal,colorbar
+    title('MOOSE solution');
+    xlabel('X')
+    ylabel('Y')
+    
+    RMS_MOOSE_error = sqrt(sum((U_MOOSE - U).^2)/length(U))
+end
         
