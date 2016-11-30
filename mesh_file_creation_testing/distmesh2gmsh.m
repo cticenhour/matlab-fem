@@ -1,7 +1,8 @@
-% distmesh2gmsh.m
+% distmesh2gmsh.m v0.1
 % DESCRIPTION: MATLAB script to create Gmsh ASCII format output files from 
-% distMesh mesh generator output data. Based on distMesh 1.1 and 
-% Gmsh 2.14.1. See NOTES below for capability specifics and usage notes.
+% distMesh mesh generator output data (box only for now). Based on distMesh
+% 1.1 and Gmsh 2.14.1. See NOTES below for capability specifics and usage 
+% notes.
 
 % Created by: Casey Icenhour
 % 11/22/2016
@@ -50,11 +51,25 @@ end
 fprintf(fileID,'$EndNodes\n$Elements\n');
 
 % Write element and connectivity data (with only 1 boundary ID)
-num_elements = length(triangle_list);
+num_elements = length(triangle_list)+length(boundary_edges);
 fprintf(fileID,'%d\n',num_elements);
-for i=1:num_elements
-    % SEE GMSH DOCUMENTATION FOR THIS PART
+
+% Enter edge nodes
+elem_edge_number = 1; %placeholder
+edges_on_each_side = 11;
+for j=1:length(boundary_edges)
+    fprintf(fileID,'%d %d %d %d %d %d %d\n', j, 1, 2, 1, ...
+        elem_edge_number, boundary_edges(j,1), boundary_edges(j,2));
 end
+
+% Enter triangular elements
+elem_surface_number = 1; %placeholder
+for k=1:length(triangle_list)
+    fprintf(fileID,'%d %d %d %d %d %d %d %d\n', j+k, 2, 2, 7,... 
+        elem_surface_number, triangle_list(k,1), triangle_list(k,2),... 
+        triangle_list(k,3));
+end
+
 fprintf(fileID,'$EndElements');
 
 % Close and write file
