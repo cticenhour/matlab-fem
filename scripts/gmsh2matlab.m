@@ -19,8 +19,8 @@
 % Casey Icenhour
 % November 29, 2016
 
-clear all
-close all
+% clear all
+% close all
 
 load nodes.txt
 load elements.txt

@@ -6,8 +6,8 @@
 %                                               Laboratory
 % September 2016
 
-% clear all
-% close all
+clear all
+close all
 
 %=============================
 % SWITCHES
@@ -15,11 +15,12 @@
 
 vectorized_method = 0;  % vectorized = simplified/optimized for MATLAB
 
-mesh_program = 0; % distMesh = 1, Gmsh = 0
+mesh_program = 1; % distMesh = 1, Gmsh = 0
     % NOTE: gmsh2matlab REQUIRES NODE, ELEMENT, AND EDGE TXT FILES TO BE 
     %       CREATED FROM GMSH OUTPUT FILE
 
 MOOSE_comparison = 1;   % requires output data CSV file from MOOSE
+                        % requires MOOSE and MATLAB codes have same mesh!
 
 %=============================
 
