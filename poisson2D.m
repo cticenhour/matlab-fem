@@ -38,7 +38,7 @@ if mesh_program == 1
 
     len = 1;
     wid = 1;
-    initial_edge_width = wid/10;
+    initial_edge_width = min(wid,len)/10;
 
     geo_dist_func = @(p) drectangle(p,0,wid,0,len);
 
