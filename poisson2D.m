@@ -42,7 +42,7 @@ if mesh_program == 1
 
     geo_dist_func = @(p) drectangle(p,0,wid,0,len);
 
-    bounds = [0,0;len,wid];
+    bounds = [0,0;wid,len];
     important_pts = [0,0;wid,0;0,len;wid,len];
 
     % Note: @huniform refers to uniform mesh
