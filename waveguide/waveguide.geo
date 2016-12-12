@@ -1,7 +1,10 @@
+width = 10;
+length = width*5;
+
 Point(1) = {0, 0, 0};
-Point(2) = {0, 5, 0};
-Point(3) = {1, 5, 0};
-Point(4) = {1, 0, 0};
+Point(2) = {0, length, 0};
+Point(3) = {width, length, 0};
+Point(4) = {width, 0, 0};
 
 
 Line(1) = {1, 2};

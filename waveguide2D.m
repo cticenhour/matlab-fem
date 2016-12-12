@@ -21,6 +21,30 @@ mesh_program = 0; % distMesh = 1, Gmsh = 0
 MOOSE_comparison = 0;   % requires output data CSV file from MOOSE
 
 %=============================
+% IMPORTANT CONSTANTS
+%=============================
+
+width = 10;
+
+m = 1;
+
+init_E = 1;
+
+source = 0;
+
+omega = 2*pi*20e6;
+
+mu0 = 4*pi*1e-7;
+
+c = 3e8;
+
+Z0 = mu0*c;
+
+k = omega/c;
+
+current_term = 1i*k*Z0*source;
+
+%=============================
 
 if mesh_program == 1
     
@@ -80,62 +104,61 @@ for i = 1:num_triangles
     centroid_y = (1/3)*(node_list(current_nodes(1),2) + ...
         node_list(current_nodes(2),2) + node_list(current_nodes(3),2));
         
-    % CONSTRUCT K WITHOUT BOUNDARY CONDITIONS
+    % CONSTRUCT K CONTRIBUTION FOR CURRENT TRIANGLE WITHOUT BOUNDARY 
+    % CONDITIONS
 
     for r = 1:3
         for s = r:3
-            % Determine if nodes r and s are interior or on boundary
+            % Determine if nodes r and s are on boundary, neglecting check 
+            % for top (side = PEC, bottom = PORT, top = natural)
             node_r = current_nodes(r);
             node_s = current_nodes(s);
-            is_r_on_boundary = sum(top_edge_nodes == node_r) + ...
-                sum(bottom_edge_nodes == node_r) + ...
+            is_r_on_boundary = sum(bottom_edge_nodes == node_r) + ...
                 sum(side_edge_nodes == node_r);
-            is_s_on_boundary = sum(top_edge_nodes == node_s) + ...
-                sum(bottom_edge_nodes == node_s) + ...
+            is_s_on_boundary = sum(bottom_edge_nodes == node_s) + ...
                 sum(side_edge_nodes == node_s);
 
             % Determine gradients in XY from coefficients of basis fxn
+            const_r = linear_basis_coefficients(1,r);
             gradX_r = linear_basis_coefficients(2,r);
             gradY_r = linear_basis_coefficients(3,r);
+            
+            const_s = linear_basis_coefficients(1,s);
             gradX_s = linear_basis_coefficients(2,s);
             gradY_s = linear_basis_coefficients(3,s);
 
+            % Estimate first term using one point gaussian quadrature
             laplacian = triangle_area*(gradX_r*gradX_s + gradY_r*gradY_s);
             
             % Estimate second term using one point gaussian quadrature
-            trial_r = linear_basis_coefficients(1,r)+...
-                linear_basis_coefficients(2,r)*centroid_x + ...
-                linear_basis_coefficients(3,r)*centroid_y;
+            trial_r = const_r + gradX_r*centroid_x + gradY_r*centroid_y;
+            trial_s = const_s + gradX_s*centroid_x + gradY_s*centroid_y;
             
-            trial_s = linear_basis_coefficients(1,s)+...
-                linear_basis_coefficients(2,s)*centroid_x + ...
-                linear_basis_coefficients(3,s)*centroid_y;
+            linear = triangle_area*(-k^2)*trial_r*trial_s;
             
-            linear = (triangle_area/3)*trial_r*trial_s;
-            
-            integral = laplacian + linear;
+            LHS = laplacian + linear;
 
             if is_r_on_boundary == 0 && is_s_on_boundary == 0
 
-                K(node_r,node_s) = K(node_r,node_s) + integral;
+                 K(node_r,node_s) = K(node_r,node_s) + LHS;
 
                 if r ~= s
-                    K(node_s,node_r) = K(node_s,node_r) + integral;   
+                    K(node_s,node_r) = K(node_s,node_r) + LHS;   
                 end
 
             elseif is_r_on_boundary == 1 && is_s_on_boundary == 0
 
-                K(node_s,node_r) = K(node_s,node_r) + integral;   
+                K(node_s,node_r) = K(node_s,node_r) + LHS;   
 
             elseif is_r_on_boundary == 0 && is_s_on_boundary == 1
 
-                K(node_r,node_s) = K(node_r,node_s) + integral;
+                K(node_r,node_s) = K(node_r,node_s) + LHS;
 
             end
         end
     end
 
-    % CONSTRUCT F WITHOUT BOUNDARY CONDITIONS
+    % CONSTRUCT F CONTRIBUTION WITH PORT BOUNDARY CONDITION ON BOTTOM
 
     for r = 1:3
         node_rF = current_nodes(r);
@@ -143,44 +166,61 @@ for i = 1:num_triangles
             sum(top_edge_nodes == node_rF) + ...
             sum(bottom_edge_nodes == node_rF);
         
+        is_rF_on_bottom_boundary = sum(bottom_edge_nodes == node_rF);
+        
+        % Estimate integral via three point gaussian quadrature (incrementing 
+        % one node at a time) 
+        increment = triangle_area/3*current_term;
+        
+        if is_rF_on_bottom_boundary == 1 % PORT BOUNDARY CONDITION
+            
+            trial_rF = linear_basis_coefficients(1,r)+...
+                linear_basis_coefficients(2,r)*centroid_x + ...
+                linear_basis_coefficients(3,r)*centroid_y;
+            
+            F(node_rF,1) = F(node_rF,1) + increment + 1i*k*init_E*sin(pi*m*node_list(node_rF,1)/width)*trial_rF;
+            
+            if K(node_rF,node_rF) == 0 
+                K(node_rF,node_rF) = 1;
+            end
+        end
+        
         if is_rF_on_boundary == 0
-
-            increment = triangle_area/3;
             F(node_rF,1) = F(node_rF,1) + increment;
         end
     end
 end  
 
-% Add boundary conditions to K and F
+% Add side PEC boundary conditions
 
-% Set sides BC
 for j = 1:length(side_edge_nodes)
     BC_current_node = side_edge_nodes(j);
     K(BC_current_node,BC_current_node) = 1;
     F(BC_current_node,1) = 0;
 end
 
-% Set bottom BC
+% Set bottom BC (NOW INCLUDED IN ABOVE CODE)
 
-for j = 1:length(bottom_edge_nodes)
-    BC_current_node = bottom_edge_nodes(j);
-    K(BC_current_node,BC_current_node) = 1;
-    F(BC_current_node,1) = 1;
-end
+% for j = 1:length(bottom_edge_nodes)
+%     BC_current_node = bottom_edge_nodes(j);
+%     K(BC_current_node,BC_current_node) = 1;
+%     F(BC_current_node,1) = F(BC_current_node,1) + k*sin(pi*m*node_list(BC_current_node,1));
+% end
 
 % Set top BC
 
-for j = 1:length(top_edge_nodes)
-    BC_current_node = top_edge_nodes(j);
-    K(BC_current_node,BC_current_node) = 1;
-    F(BC_current_node,1) = 1;
-end
+% for j = 1:length(top_edge_nodes)
+%     BC_current_node = top_edge_nodes(j);
+%     K(BC_current_node,BC_current_node) = 1;
+%     F(BC_current_node,1) = 0;%F(BC_current_node,1) + triangle_area/3;
+% end
 
 % Solve system of equations
 U = K\F;
 
 % Plot solution
-trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),U,...
+figure
+trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),abs(U),...
     'edgecolor','k','facecolor','interp');
 view(2),axis equal,colorbar
 xlabel('X')
