@@ -220,9 +220,18 @@ U = K\F;
 
 % Plot solution
 figure
-trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),abs(U),...
+trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),real(U),...
     'edgecolor','k','facecolor','interp');
 view(2),axis equal,colorbar
+title('Real part of E_z')
+xlabel('X')
+ylabel('Y')
+
+figure
+trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),imag(U),...
+    'edgecolor','k','facecolor','interp');
+view(2),axis equal,colorbar
+title('Imaginary part of E_z')
 xlabel('X')
 ylabel('Y')
 
