@@ -40,7 +40,7 @@ c = 3e8;
 
 Z0 = mu0*c;
 
-k = omega/c;
+k = omega/c*(1+1i*0.1);
 
 current_term = 1i*k*Z0*source;
 
@@ -113,10 +113,12 @@ for i = 1:num_triangles
             % for top (side = PEC, bottom = PORT, top = natural)
             node_r = current_nodes(r);
             node_s = current_nodes(s);
-            is_r_on_boundary = sum(bottom_edge_nodes == node_r) + ...
+            is_r_on_port_or_sides = sum(bottom_edge_nodes == node_r) + ...
                 sum(side_edge_nodes == node_r);
-            is_s_on_boundary = sum(bottom_edge_nodes == node_s) + ...
+            is_r_on_top = sum(top_edge_nodes == node_r);
+            is_s_on_port_or_sides = sum(bottom_edge_nodes == node_s) + ...
                 sum(side_edge_nodes == node_s);
+            is_s_on_top = sum(top_edge_nodes == node_s);
 
             % Determine gradients in XY from coefficients of basis fxn
             const_r = linear_basis_coefficients(1,r);
@@ -138,7 +140,7 @@ for i = 1:num_triangles
             
             LHS = laplacian + linear;
 
-            if is_r_on_boundary == 0 && is_s_on_boundary == 0
+            if is_r_on_port_or_sides == 0 && is_s_on_port_or_sides == 0
 
                  K(node_r,node_s) = K(node_r,node_s) + LHS;
 
@@ -146,15 +148,31 @@ for i = 1:num_triangles
                     K(node_s,node_r) = K(node_s,node_r) + LHS;   
                 end
 
-            elseif is_r_on_boundary == 1 && is_s_on_boundary == 0
+            elseif is_r_on_port_or_sides == 1 && is_s_on_port_or_sides == 0
 
                 K(node_s,node_r) = K(node_s,node_r) + LHS;   
 
-            elseif is_r_on_boundary == 0 && is_s_on_boundary == 1
+            elseif is_r_on_port_or_sides == 0 && is_s_on_port_or_sides == 1
 
                 K(node_r,node_s) = K(node_r,node_s) + LHS;
 
             end
+            
+            % Add absorbing boundary condition to top boundary
+%             
+%             absorbing_BC_r = triangle_area*(gradY_r*trial_s + 1i*k*(1-0.5*(30/k)^2)*trial_r*trial_s);
+%             
+%             absorbing_BC_s = triangle_area*(gradY_s*trial_r + 1i*k*(1-0.5*(30/k)^2)*trial_s*trial_r);
+%             
+%             if is_r_on_top == 1 && is_s_on_top == 0
+%                
+%                 K(node_s,node_r) = absorbing_BC_r;
+%                 
+%             elseif is_r_on_top == 0 && is_s_on_top == 1
+%                 
+%                 K(node_r,node_s) = absorbing_BC_s;
+%                 
+%             end
         end
     end
 
@@ -220,6 +238,14 @@ U = K\F;
 
 % Plot solution
 figure
+trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),abs(U),...
+    'edgecolor','k','facecolor','interp');
+view(2),axis equal,colorbar
+title('Magnitude of E_z')
+xlabel('X')
+ylabel('Y')
+
+figure
 trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),real(U),...
     'edgecolor','k','facecolor','interp');
 view(2),axis equal,colorbar
@@ -232,6 +258,14 @@ trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),imag(U),...
     'edgecolor','k','facecolor','interp');
 view(2),axis equal,colorbar
 title('Imaginary part of E_z')
+xlabel('X')
+ylabel('Y')
+
+figure
+trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),atan2(imag(U),real(U)),...
+    'edgecolor','k','facecolor','interp');
+view(2),axis equal,colorbar
+title('Phase of E_z')
 xlabel('X')
 ylabel('Y')
 
