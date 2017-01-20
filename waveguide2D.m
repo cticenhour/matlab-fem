@@ -14,7 +14,7 @@ close all
 % SWITCHES
 %=============================
 
-mesh_program = 0; % distMesh = 1, Gmsh = 0
+mesh_program = 1; % distMesh = 1, Gmsh = 0
     % NOTE: gmsh2matlab REQUIRES NODE, ELEMENT, AND EDGE TXT FILES TO BE 
     %       CREATED FROM GMSH OUTPUT FILE
 
@@ -25,6 +25,7 @@ MOOSE_comparison = 0;   % requires output data CSV file from MOOSE
 %=============================
 
 width = 10;
+len = 80;
 
 m = 1;
 
@@ -40,7 +41,7 @@ c = 3e8;
 
 Z0 = mu0*c;
 
-k = omega/c*(1+1i*0.1);
+k = omega/c;%*(1+1i*0);
 
 current_term = 1i*k*Z0*source;
 
@@ -58,14 +59,12 @@ if mesh_program == 1
     %                                     node numbers corresponding to 
     %                                     rows in node_list
 
-    len = 5;
-    wid = 1;
-    initial_edge_width = min(len,wid)/10;
+    initial_edge_width = min(len,width)/5;
 
-    geo_dist_func = @(p) drectangle(p,0,wid,0,len);
+    geo_dist_func = @(p) drectangle(p,0,width,0,len);
 
-    bounds = [0,0;wid,len];
-    important_pts = [0,0;wid,0;0,len;wid,len];
+    bounds = [0,0;width,len];
+    important_pts = [0,0;width,0;0,len;width,len];
 
     % Note: @huniform refers to uniform mesh
     % See http://persson.berkeley.edu/distmesh/ for usage info
@@ -74,7 +73,29 @@ if mesh_program == 1
 
     boundary_edges = boundedges(node_list,triangle_list);
     edge_nodes = unique(boundary_edges);
-
+   
+    edge_coords = node_list(edge_nodes(:),:);
+    
+    bottom_logic = ismember(edge_coords(:,2),0);
+    top_logic = ismember(edge_coords(:,2),len);
+    left_side_logic = ismember(edge_coords(:,1),0);
+    right_side_logic = ismember(edge_coords(:,1),width);
+    
+    top_edge_nodes = nonzeros(top_logic.*edge_nodes);
+    bottom_edge_nodes = nonzeros(bottom_logic.*edge_nodes);
+    left_edge_nodes = nonzeros(left_side_logic.*edge_nodes);
+    right_edge_nodes = nonzeros(right_side_logic.*edge_nodes);
+    
+    % set duplicate side corners to null values, removing them from left and right 
+    left_edge_nodes(1) = [];
+    left_edge_nodes(length(left_edge_nodes)) = [];
+    
+    right_edge_nodes(1) = [];
+    right_edge_nodes(length(right_edge_nodes)) = [];
+    
+    side_edge_nodes = [left_edge_nodes; right_edge_nodes];
+    
+    
     num_nodes = size(node_list,1);
     num_triangles = size(triangle_list,1);
 elseif mesh_program == 0
@@ -159,20 +180,20 @@ for i = 1:num_triangles
             end
             
             % Add absorbing boundary condition to top boundary
-%             
-%             absorbing_BC_r = triangle_area*(gradY_r*trial_s + 1i*k*(1-0.5*(30/k)^2)*trial_r*trial_s);
-%             
-%             absorbing_BC_s = triangle_area*(gradY_s*trial_r + 1i*k*(1-0.5*(30/k)^2)*trial_s*trial_r);
-%             
-%             if is_r_on_top == 1 && is_s_on_top == 0
-%                
-%                 K(node_s,node_r) = absorbing_BC_r;
-%                 
-%             elseif is_r_on_top == 0 && is_s_on_top == 1
-%                 
-%                 K(node_r,node_s) = absorbing_BC_s;
-%                 
-%             end
+            
+            absorbing_BC_r = triangle_area*(gradY_r*trial_s + 1i*k*(1-0.5*(30/k)^2)*trial_r*trial_s);
+            
+            absorbing_BC_s = triangle_area*(gradY_s*trial_r + 1i*k*(1-0.5*(30/k)^2)*trial_s*trial_r);
+            
+            if is_r_on_top == 1 && is_s_on_top == 0
+               
+                K(node_s,node_r) = absorbing_BC_r;
+                
+            elseif is_r_on_top == 0 && is_s_on_top == 1
+                
+                K(node_r,node_s) = absorbing_BC_s;
+                
+            end
         end
     end
 
@@ -211,10 +232,25 @@ end
 
 % Add side PEC boundary conditions
 
-for j = 1:length(side_edge_nodes)
-    BC_current_node = side_edge_nodes(j);
-    K(BC_current_node,BC_current_node) = 1;
-    F(BC_current_node,1) = 0;
+% for j = 1:length(side_edge_nodes)
+%     BC_current_node = side_edge_nodes(j);
+%     K(BC_current_node,BC_current_node) = 1;
+%     F(BC_current_node,1) = 0;
+% end
+
+% Add side periodic boundary conditions (IN PROGRESS - MIGHT NEED
+% CONTINUITY IN VALUE, BELOW, and CONTINUITY IN THE FIRST DERIVATIVE IN
+% MAIN LOOP)
+
+for j = 1:length(right_edge_nodes)
+    BC_current_node_right = right_edge_nodes(j);
+    BC_current_node_left = left_edge_nodes(j);
+    K(BC_current_node_right,BC_current_node_right) = 1;
+    K(BC_current_node_right,BC_current_node_left) = -1;
+    K(BC_current_node_left,BC_current_node_left) = 1;
+    K(BC_current_node_left,BC_current_node_right) = -1;
+    F(BC_current_node_right,1) = 0;
+    F(BC_current_node_left,1) = 0;
 end
 
 % Set bottom BC (NOW INCLUDED IN ABOVE CODE)
@@ -235,6 +271,8 @@ end
 
 % Solve system of equations
 U = K\F;
+
+phase = atan2(imag(U),real(U));
 
 % Plot solution
 figure
@@ -262,12 +300,22 @@ xlabel('X')
 ylabel('Y')
 
 figure
-trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),atan2(imag(U),real(U)),...
+trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),phase,...
     'edgecolor','k','facecolor','interp');
 view(2),axis equal,colorbar
 title('Phase of E_z')
 xlabel('X')
 ylabel('Y')
+
+% Take a slice from a trisurf plot at the center of the waveguide 
+% (x = width/2)
+num_pts = 30;
+method = 'natural';
+xy = [ones(num_pts,1).*(width/2), linspace(0,len,num_pts)'];
+z = griddata(node_list(:,1),node_list(:,2),phase,xy(:,1),xy(:,2));
+
+figure
+plot(xy(:,2),z);
 
 if MOOSE_comparison == 1
     sortMOOSEoutput
