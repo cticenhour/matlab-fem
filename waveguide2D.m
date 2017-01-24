@@ -11,7 +11,7 @@ clear all
 close all
 
 %=============================
-% SWITCHES
+% SWITCHES AND PLOTTING OPTIONS
 %=============================
 
 mesh_program = 1; % distMesh = 1, Gmsh = 0
@@ -19,6 +19,15 @@ mesh_program = 1; % distMesh = 1, Gmsh = 0
     %       CREATED FROM GMSH OUTPUT FILE
 
 MOOSE_comparison = 0;   % requires output data CSV file from MOOSE
+
+% Plotting switches
+plot_real_E = 0;
+plot_imag_E = 0;
+plot_mag_E = 0;
+plot_phase_E = 0;
+plot_time_E = 1;
+plot_analytic_time_E = 1;
+plot_slice = 0;
 
 %=============================
 % IMPORTANT CONSTANTS
@@ -41,7 +50,9 @@ c = 3e8;
 
 Z0 = mu0*c;
 
-k = omega/c*(1+1i*0.1);
+k = omega/c*(1+1i*0);
+
+beta = sqrt(k^2 - (pi/width)^2);
 
 current_term = 1i*k*Z0*source;
 
@@ -71,6 +82,9 @@ if mesh_program == 1
     [node_list, triangle_list] = distmesh2d(geo_dist_func,@huniform,...
         initial_edge_width,bounds,important_pts);
 
+    % close distmesh rendering of mesh
+    close(1)
+    
     boundary_edges = boundedges(node_list,triangle_list);
     edge_nodes = unique(boundary_edges);
    
@@ -265,60 +279,90 @@ t = 0:t_max/100:t_max;
 
 E_time = U*exp(1i*omega*t);
 
-% Plot solution
-% trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),abs(U),...
-%     'edgecolor','k','facecolor','interp');
-% view(2),axis equal,colorbar
-% title('Magnitude of E_z')
-% xlabel('X')
-% ylabel('Y')
-% 
-% figure
-% trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),real(U),...
-%     'edgecolor','k','facecolor','interp');
-% view(2),axis equal,colorbar
-% title('Real part of E_z')
-% xlabel('X')
-% ylabel('Y')
-% 
-% figure
-% trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),imag(U),...
-%     'edgecolor','k','facecolor','interp');
-% view(2),axis equal,colorbar
-% title('Imaginary part of E_z')
-% xlabel('X')
-% ylabel('Y')
-% 
-% figure
-% trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),phase,...
-%     'edgecolor','k','facecolor','interp');
-% view(2),axis equal,colorbar
-% title('Phase of E_z')
-% xlabel('X')
-% ylabel('Y')
+E_analytic_time = init_E*sin((pi/width)*node_list(:,1)).*cos(omega*t-beta*node_list(:,2));
 
-% Plot time solution
-figure
-for j=1:length(t)
-    trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),real(E_time(:,j)),...
-    'edgecolor','k','facecolor','interp');
-    view(2),axis equal
-    h = colorbar;
-    set(h,'ylim',[-0.5 0.5])
+%----------------------------
+%   PLOTTING
+%----------------------------
+
+if plot_mag_E == 1
+    figure
+    trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),abs(U),...
+        'edgecolor','k','facecolor','interp');
+    view(2),axis equal,colorbar
+    title('Magnitude of E_z')
     xlabel('X')
     ylabel('Y')
-    F = getframe(gcf);
-end 
+end
 
-% Take a slice from a trisurf plot at the center of the waveguide 
-% (x = width/2)
-% num_pts = 30;
-% method = 'natural';
-% xy = [ones(num_pts,1).*(width/2), linspace(0,len,num_pts)'];
-% z = griddata(node_list(:,1),node_list(:,2),phase,xy(:,1),xy(:,2));
-% 
-% figure
-% plot(xy(:,2),z);
+if plot_real_E == 1
+    figure
+    trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),real(U),...
+        'edgecolor','k','facecolor','interp');
+    view(2),axis equal,colorbar
+    title('Real part of E_z')
+    xlabel('X')
+    ylabel('Y')
+end
+
+if plot_imag_E == 1
+    figure
+    trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),imag(U),...
+        'edgecolor','k','facecolor','interp');
+    view(2),axis equal,colorbar
+    title('Imaginary part of E_z')
+    xlabel('X')
+    ylabel('Y')
+end
+
+if plot_phase_E == 1
+    figure
+    trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),phase,...
+        'edgecolor','k','facecolor','interp');
+    view(2),axis equal,colorbar
+    title('Phase of E_z')
+    xlabel('X')
+    ylabel('Y')
+end
+
+% Plot time solution movie
+if plot_time_E == 1
+    figure
+    for j=1:length(t)
+        trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),real(E_time(:,j)),'edgecolor','k','facecolor','interp');
+        view(2),axis equal, colorbar
+        caxis([-0.3 0.3])
+        xlabel('X')
+        ylabel('Y')
+        title('Real part of E_z')
+        F = getframe(gcf);
+    end
+end
+
+% Plot analytic time solution movie
+if plot_analytic_time_E == 1
+    figure
+    for j=1:length(t)
+        trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),E_analytic_time(:,j),'edgecolor','k','facecolor','interp');
+        view(2),axis equal, colorbar
+        caxis([-0.3 0.3])
+        xlabel('X')
+        ylabel('Y')
+        title('Analytic Solution')
+        F = getframe(gcf);
+    end
+end
+
+% Take a slice from a trisurf plot at the center of the waveguide (x = width/2)
+if plot_slice == 1
+    num_pts = 30;
+    method = 'natural';
+    xy = [ones(num_pts,1).*(width/2), linspace(0,len,num_pts)'];
+    z = griddata(node_list(:,1),node_list(:,2),phase,xy(:,1),xy(:,2));
+
+    figure
+    plot(xy(:,2),z);
+end
 
 if MOOSE_comparison == 1
     sortMOOSEoutput
