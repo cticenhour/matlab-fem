@@ -232,10 +232,13 @@ for i = 1:num_triangles
                 linear_basis_coefficients(2,r)*centroid_x + ...
                 linear_basis_coefficients(3,r)*centroid_y;
             
-            F(node_rF,1) = F(node_rF,1) + increment + 1i*k*init_E*sin(pi*m*node_list(node_rF,1)/width)*trial_rF;
+            F(node_rF,1) = F(node_rF,1) + increment + 1i*k*init_E*sin(pi*m*node_list(node_rF,1)/width)*exp(-1i*k*node_list(node_rF,2))*trial_rF;
+
+            
+%             F(node_rF,1) = F(node_rF,1) + increment + 1i*k*init_E*sin(pi*m*node_list(node_rF,1)/width)*trial_rF;
             
             if K(node_rF,node_rF) == 0 
-                K(node_rF,node_rF) = 1;
+                K(node_rF,node_rF) = 1i*k;
             end
         end
         
