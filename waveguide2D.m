@@ -5,7 +5,7 @@
 % Organization: North Carolina State University/Oak Ridge National
 %                                               Laboratory
 % December 2016
-% last update: December 6, 2016
+% last update: January 25, 2017
 
 clear all
 close all
@@ -196,19 +196,19 @@ for i = 1:num_triangles
             % Add absorbing boundary condition to top boundary
             % (first-order)
             
-            absorbing_BC_r = triangle_area*(gradY_r*trial_s + 1i*k*trial_r*trial_s);
-            
-            absorbing_BC_s = triangle_area*(gradY_s*trial_r + 1i*k*trial_s*trial_r);
-            
-            if is_r_on_top == 1 && is_s_on_top == 0
-               
-                K(node_r,node_s) = K(node_r, node_s) + absorbing_BC_r;
-                
-            elseif is_r_on_top == 0 && is_s_on_top == 1
-                
-                K(node_s,node_r) = K(node_s, node_r) + absorbing_BC_s;
-                
-            end
+%             absorbing_BC_r = triangle_area*(gradY_r*trial_s + 1i*k*trial_r*trial_s);
+%             
+%             absorbing_BC_s = triangle_area*(gradY_s*trial_r + 1i*k*trial_s*trial_r);
+%             
+%             if is_r_on_top == 1 && is_s_on_top == 0
+%                
+%                 K(node_r,node_s) = K(node_r, node_s) + absorbing_BC_r;
+%                 
+%             elseif is_r_on_top == 0 && is_s_on_top == 1
+%                 
+%                 K(node_s,node_r) = K(node_s, node_r) + absorbing_BC_s;
+%                 
+%             end
         end
     end
 
@@ -220,11 +220,26 @@ for i = 1:num_triangles
             sum(top_edge_nodes == node_rF) + ...
             sum(bottom_edge_nodes == node_rF);
         
+        is_rF_on_top_boundary = sum(top_edge_nodes == node_rF);
+        
         is_rF_on_bottom_boundary = sum(bottom_edge_nodes == node_rF);
         
         % Estimate integral via three point gaussian quadrature (incrementing 
         % one node at a time) 
         increment = triangle_area/3*current_term;
+        
+        trial_rF = linear_basis_coefficients(1,r)+...
+                linear_basis_coefficients(2,r)*centroid_x + ...
+                linear_basis_coefficients(3,r)*centroid_y;
+            
+        if is_rF_on_top_boundary == 1 % ABSORBING BOUNDARY CONDITION (1st order)
+            
+            F(node_rF,1) = F(node_rF,1) + increment;
+            
+            if K(node_rF,node_rF) == 0
+                K(node_rF,node_rF) = 1i*k*trial_rF; %(1-0.5*(pi*m/width)^2/k^2)*trial_rF;
+            end
+        end
         
         if is_rF_on_bottom_boundary == 1 % PORT BOUNDARY CONDITION 
             
@@ -232,13 +247,13 @@ for i = 1:num_triangles
                 linear_basis_coefficients(2,r)*centroid_x + ...
                 linear_basis_coefficients(3,r)*centroid_y;
             
-            F(node_rF,1) = F(node_rF,1) + increment + 1i*k*init_E*sin(pi*m*node_list(node_rF,1)/width)*exp(-1i*k*node_list(node_rF,2))*trial_rF;
+            F(node_rF,1) = F(node_rF,1) + increment - 2*1i*k*init_E*sin(pi*m*node_list(node_rF,1)/width)*exp(-1i*k*node_list(node_rF,2))*trial_rF;
 
             
 %             F(node_rF,1) = F(node_rF,1) + increment + 1i*k*init_E*sin(pi*m*node_list(node_rF,1)/width)*trial_rF;
             
             if K(node_rF,node_rF) == 0 
-                K(node_rF,node_rF) = 1i*k;
+                K(node_rF,node_rF) = -1i*k*trial_rF;
             end
         end
         
@@ -280,9 +295,13 @@ t_max = rF_cycles/omega;
 
 t = 0:t_max/100:t_max;
 
-E_time = U*exp(1i*omega*t);
+E_time = U*exp(-1i*omega*t);
 
-E_analytic_time = init_E*sin((pi/width)*node_list(:,1)).*cos(omega*t-beta*node_list(:,2));
+E_analytic_time = zeros(length(node_list(:,1)),length(t));
+
+for i=1:length(t)    
+    E_analytic_time(:,i) = init_E*sin((pi/width)*node_list(:,1)).*cos(omega*t(i)-beta*node_list(:,2));
+end
 
 %----------------------------
 %   PLOTTING
@@ -292,7 +311,7 @@ if plot_mag_E == 1
     figure
     trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),abs(U),...
         'edgecolor','k','facecolor','interp');
-    view(2),axis equal,colorbar
+    view(2),axis image,colorbar
     title('Magnitude of E_z')
     xlabel('X')
     ylabel('Y')
@@ -302,7 +321,7 @@ if plot_real_E == 1
     figure
     trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),real(U),...
         'edgecolor','k','facecolor','interp');
-    view(2),axis equal,colorbar
+    view(2),axis image,colorbar
     title('Real part of E_z')
     xlabel('X')
     ylabel('Y')
@@ -312,7 +331,7 @@ if plot_imag_E == 1
     figure
     trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),imag(U),...
         'edgecolor','k','facecolor','interp');
-    view(2),axis equal,colorbar
+    view(2),axis image,colorbar
     title('Imaginary part of E_z')
     xlabel('X')
     ylabel('Y')
@@ -322,7 +341,7 @@ if plot_phase_E == 1
     figure
     trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),phase,...
         'edgecolor','k','facecolor','interp');
-    view(2),axis equal,colorbar
+    view(2),axis image,colorbar
     title('Phase of E_z')
     xlabel('X')
     ylabel('Y')
@@ -331,10 +350,11 @@ end
 % Plot time solution movie
 if plot_time_E == 1
     figure
+    peak = max(real(U));
     for j=1:length(t)
         trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),real(E_time(:,j)),'edgecolor','k','facecolor','interp');
-        view(2),axis equal, colorbar
-        caxis([-0.3 0.3])
+        view(2),axis image, colorbar
+        caxis([-peak peak])
         xlabel('X')
         ylabel('Y')
         title('Real part of E_z')
@@ -345,10 +365,11 @@ end
 % Plot analytic time solution movie
 if plot_analytic_time_E == 1
     figure
+    peak = max(real(E_analytic_time(:,1)));
     for j=1:length(t)
-        trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),E_analytic_time(:,j),'edgecolor','k','facecolor','interp');
-        view(2),axis equal, colorbar
-        caxis([-0.3 0.3])
+        trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),real(E_analytic_time(:,j)),'edgecolor','k','facecolor','interp');
+        view(2),axis image, colorbar
+        caxis([-peak peak])
         xlabel('X')
         ylabel('Y')
         title('Analytic Solution')
@@ -371,7 +392,7 @@ if MOOSE_comparison == 1
     sortMOOSEoutput
     figure
     trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),U_MOOSE,'edgecolor','k','facecolor','interp')
-    view(2),axis equal,colorbar
+    view(2),axis image,colorbar
     title('MOOSE solution');
     xlabel('X')
     ylabel('Y')
