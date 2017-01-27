@@ -23,9 +23,9 @@ MOOSE_comparison = 0;   % requires output data CSV file from MOOSE
 % Plotting switches
 real_E = 0;
 imag_E = 0;
-mag_E = 0;
-phase_E = 0;
-time_E = 1;
+mag_E = 1;
+phase_E = 1;
+time_E = 0;
 analytic_time_E = 0;
 slice = 0;
 
@@ -33,8 +33,9 @@ slice = 0;
 % IMPORTANT CONSTANTS
 %=============================
 
-width = 10;
-len = 80;
+waveguide_width = 10;
+waveguide_length = 80; 
+box_side = 40;
 
 m = 1;
 
@@ -52,7 +53,7 @@ Z0 = mu0*c;
 
 k = omega/c*(1+1i*0);
 
-beta = sqrt(k^2 - (pi/width)^2);
+beta = sqrt(k^2 - (pi/waveguide_width)^2);
 
 current_term = 1i*k*Z0*source;
 
@@ -70,12 +71,16 @@ if mesh_program == 1
     %                                     node numbers corresponding to 
     %                                     rows in node_list
 
-    initial_edge_width = min(len,width)/5;
+    waveguide_width = 10;
+    waveguide_length = 80; 
+    box_side = 40;
 
-    geo_dist_func = @(p) drectangle(p,0,len,0,width);
+    initial_edge_width = min([waveguide_width,waveguide_length,box_side])/5;
 
-    bounds = [0,0;len,width];
-    important_pts = [0,0;len,0;0,width;len,width];
+    geo_dist_func = @(p) ddiff(ddiff(drectangle(p,0,box_side+waveguide_length,0,box_side),drectangle(p,0,waveguide_length,0,(box_side-waveguide_width)/2)),drectangle(p,0,waveguide_length,box_side - (box_side - waveguide_width)/2,box_side));
+
+    bounds = [0,0;(box_side+waveguide_length),box_side];
+    important_pts = [0,(box_side-waveguide_width)/2;0,(box_side-waveguide_width)/2 + waveguide_width;waveguide_length, (box_side-waveguide_width)/2; waveguide_length,(box_side-waveguide_width)/2 + waveguide_width;waveguide_length,0;waveguide_length,box_side;waveguide_length+box_side,0;waveguide_length+box_side,box_side] ;
 
     % Note: @huniform refers to uniform mesh
     % See http://persson.berkeley.edu/distmesh/ for usage info
@@ -91,21 +96,29 @@ if mesh_program == 1
     edge_coords = node_list(edge_nodes(:),:);
     
     port_logic = ismember(edge_coords(:,1),0);
-    exit_logic = ismember(edge_coords(:,1),len);
-    top_side_logic = ismember(edge_coords(:,2),width);
-    bottom_side_logic = ismember(edge_coords(:,2),0);
+    box_logic = ismember(edge_coords(:,1),waveguide_length) + ismember(edge_coords(:,1),waveguide_length+box_side) + ismember(edge_coords(:,2),0) + ismember(edge_coords(:,2),box_side);
+    top_side_logic = ismember(edge_coords(:,2),(box_side - waveguide_width)/2 + waveguide_width);
+    bottom_side_logic = ismember(edge_coords(:,2),(box_side - waveguide_width)/2);
     
-    exit_edge_nodes = nonzeros(exit_logic.*edge_nodes);
+    % correction for duplicate box corners
+    if max(box_logic) == 2
+        temp_logic = ismember(box_logic,2);
+        box_logic = box_logic - temp_logic;
+    end
+    
+    exit_edge_nodes = nonzeros(box_logic.*edge_nodes);
     port_edge_nodes = nonzeros(port_logic.*edge_nodes);
     top_edge_nodes = nonzeros(top_side_logic.*edge_nodes);
     bottom_edge_nodes = nonzeros(bottom_side_logic.*edge_nodes);
     
-    % set duplicate side corners to null values, removing them from top and
+    % set duplicate side corners and incorrect node from box from top and
     % bottom
     top_edge_nodes(1) = [];
     top_edge_nodes(length(top_edge_nodes)) = [];
+    top_edge_nodes(length(top_edge_nodes)) = [];
     
     bottom_edge_nodes(1) = [];
+    bottom_edge_nodes(length(bottom_edge_nodes)) = [];
     bottom_edge_nodes(length(bottom_edge_nodes)) = [];
     
     wall_edge_nodes = [top_edge_nodes; bottom_edge_nodes];
@@ -248,10 +261,10 @@ for i = 1:num_triangles
                 linear_basis_coefficients(2,r)*centroid_x + ...
                 linear_basis_coefficients(3,r)*centroid_y;
             
-            F(node_rF,1) = F(node_rF,1) + increment - 2*1i*k*init_E*sin(pi*m*node_list(node_rF,2)/width)*exp(-1i*k*node_list(node_rF,1))*trial_rF;
+            F(node_rF,1) = F(node_rF,1) + increment - 2*1i*k*init_E*sin(pi*m*(node_list(node_rF,2) - (box_side - waveguide_width)/2)/waveguide_width)*exp(-1i*k*node_list(node_rF,1))*trial_rF;
 
             
-%             F(node_rF,1) = F(node_rF,1) + increment + 1i*k*init_E*sin(pi*m*node_list(node_rF,1)/width)*trial_rF;
+%             F(node_rF,1) = F(node_rF,1) + increment + 1i*k*init_E*sin(pi*m*node_list(node_rF,1)/waveguide_width)*trial_rF;
             
             if K(node_rF,node_rF) == 0 
                 K(node_rF,node_rF) = -1i*k*trial_rF;
@@ -301,7 +314,7 @@ E_time = U*exp(-1i*omega*t);
 E_analytic_time = zeros(length(node_list(:,1)),length(t));
 
 for i=1:length(t)    
-    E_analytic_time(:,i) = init_E*sin((pi/width)*node_list(:,2)).*cos(omega*t(i)-beta*node_list(:,1));
+    E_analytic_time(:,i) = init_E*sin((pi/waveguide_width)*node_list(:,2)).*cos(omega*t(i)-beta*node_list(:,1));
 end
 
 %----------------------------
