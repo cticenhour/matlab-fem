@@ -23,9 +23,9 @@ MOOSE_comparison = 0;   % requires output data CSV file from MOOSE
 % Plotting switches
 real_E = 0;
 imag_E = 0;
-mag_E = 0;
-phase_E = 0;
-time_E = 1;
+mag_E = 1;
+phase_E = 1;
+time_E = 0;
 analytic_time_E = 0;
 slice = 0;
 
@@ -46,11 +46,15 @@ omega = 2*pi*20e6;
 
 mu0 = 4*pi*1e-7;
 
+eps0 = 8.854e-12; % F/m
+
 c = 3e8;
 
 Z0 = mu0*c;
 
-k = omega/c*(1+1i*0);
+k0 = omega/c;
+
+k = k0*(1+1i*0);
 
 beta = sqrt(k^2 - (pi/width)^2);
 
@@ -149,11 +153,9 @@ for i = 1:num_triangles
             % for exit
             node_r = current_nodes(r);
             node_s = current_nodes(s);
-            is_r_on_port_or_sides = sum(port_edge_nodes == node_r) + ...
-                sum(wall_edge_nodes == node_r);
+            is_r_on_sides = sum(wall_edge_nodes == node_r);
             is_r_on_exit = sum(exit_edge_nodes == node_r);
-            is_s_on_port_or_sides = sum(port_edge_nodes == node_s) + ...
-                sum(wall_edge_nodes == node_s);
+            is_s_on_sides = sum(wall_edge_nodes == node_s);
             is_s_on_exit = sum(exit_edge_nodes == node_s);
 
             % Determine gradients in XY from coefficients of basis fxn
@@ -172,11 +174,11 @@ for i = 1:num_triangles
             trial_r = const_r + gradX_r*centroid_x + gradY_r*centroid_y;
             trial_s = const_s + gradX_s*centroid_x + gradY_s*centroid_y;
             
-            linear = triangle_area*(-k^2)*trial_r*trial_s;
+            linear = triangle_area*(-k0^2)*trial_r*trial_s;
             
             LHS = laplacian + linear;
 
-            if is_r_on_port_or_sides == 0 && is_s_on_port_or_sides == 0
+            if is_r_on_sides == 0 && is_s_on_sides == 0
 
                  K(node_r,node_s) = K(node_r,node_s) + LHS;
 
@@ -184,36 +186,19 @@ for i = 1:num_triangles
                     K(node_s,node_r) = K(node_s,node_r) + LHS;   
                 end
 
-            elseif is_r_on_port_or_sides == 1 && is_s_on_port_or_sides == 0
+            elseif is_r_on_sides == 1 && is_s_on_sides == 0
 
                 K(node_s,node_r) = K(node_s,node_r) + LHS;              
 
-            elseif is_r_on_port_or_sides == 0 && is_s_on_port_or_sides == 1
+            elseif is_r_on_sides == 0 && is_s_on_sides == 1
 
                 K(node_r,node_s) = K(node_r,node_s) + LHS;
 
             end
-            
-            % Add absorbing boundary condition to top boundary
-            % (first-order)
-            
-%             absorbing_BC_r = triangle_area*(gradY_r*trial_s + 1i*k*trial_r*trial_s);
-%             
-%             absorbing_BC_s = triangle_area*(gradY_s*trial_r + 1i*k*trial_s*trial_r);
-%             
-%             if is_r_on_exit == 1 && is_s_on_exit == 0
-%                
-%                 K(node_r,node_s) = K(node_r, node_s) + absorbing_BC_r;
-%                 
-%             elseif is_r_on_exit == 0 && is_s_on_exit == 1
-%                 
-%                 K(node_s,node_r) = K(node_s, node_r) + absorbing_BC_s;
-%                 
-%             end
         end
     end
 
-    % CONSTRUCT F CONTRIBUTION WITH PORT BOUNDARY CONDITION ON BOTTOM
+    % CONSTRUCT F CONTRIBUTION WITH PORT BOUNDARY CONDITION
 
     for r = 1:3
         node_rF = current_nodes(r);
@@ -233,13 +218,13 @@ for i = 1:num_triangles
                 linear_basis_coefficients(2,r)*centroid_x + ...
                 linear_basis_coefficients(3,r)*centroid_y;
             
-        if is_rF_on_exit_boundary == 1 % ABSORBING BOUNDARY CONDITION (1st order)
+        if is_rF_on_exit_boundary == 1 % ABSORBING BOUNDARY CONDITION 
             
             F(node_rF,1) = F(node_rF,1) + increment;
-            
-            if K(node_rF,node_rF) == 0
-                K(node_rF,node_rF) = 1i*k*trial_rF; %(1-0.5*(pi*m/width)^2/k^2)*trial_rF;
-            end
+            % First-order
+            %K(node_rF,node_rF) = K(node_rF,node_rF) - triangle_area*1i*k0*trial_rF; 
+            % Second-order
+            K(node_rF,node_rF) = K(node_rF,node_rF) - triangle_area*1i*k0*(1-0.5*(pi*m/width)^2/k0^2)*trial_rF;
         end
         
         if is_rF_on_port_boundary == 1 % PORT BOUNDARY CONDITION 
@@ -248,18 +233,13 @@ for i = 1:num_triangles
                 linear_basis_coefficients(2,r)*centroid_x + ...
                 linear_basis_coefficients(3,r)*centroid_y;
             
-            F(node_rF,1) = F(node_rF,1) + increment - 2*1i*k*init_E*sin(pi*m*node_list(node_rF,2)/width)*exp(-1i*k*node_list(node_rF,1))*trial_rF;
-
+            F(node_rF,1) = F(node_rF,1) + increment - triangle_area*2*1i*k0*init_E*sin(pi*m*centroid_y/width)*exp(-1i*k0*centroid_x);
             
-%             F(node_rF,1) = F(node_rF,1) + increment + 1i*k*init_E*sin(pi*m*node_list(node_rF,1)/width)*trial_rF;
-            
-            if K(node_rF,node_rF) == 0 
-                K(node_rF,node_rF) = -1i*k*trial_rF;
-            end
+            K(node_rF,node_rF) = K(node_rF,node_rF) - triangle_area*1i*k0*trial_rF;
         end
         
         if is_rF_on_boundary == 0
-            F(node_rF,1) = F(node_rF,1); %+ increment;
+            F(node_rF,1) = F(node_rF,1) + increment;
         end
     end
     
@@ -380,13 +360,13 @@ end
 
 % Take a slice from a trisurf plot at the center of the waveguide (x = width/2)
 if slice == 1
-    num_pts = 30;
+    num_pts = 100;
     method = 'natural';
     xy = [linspace(0,len,num_pts)', ones(num_pts,1).*(width/2)];
     z = griddata(node_list(:,1),node_list(:,2),phase,xy(:,1),xy(:,2));
 
     figure
-    plot(xy(:,2),z);
+    plot(xy(:,1),z);
 end
 
 if MOOSE_comparison == 1
