@@ -5,7 +5,7 @@
 % Organization: North Carolina State University/Oak Ridge National
 %                                               Laboratory
 % December 2016
-% last update: January 25, 2017
+% last update: February 2, 2017
 
 clear all
 close all
@@ -24,7 +24,7 @@ MOOSE_comparison = 0;   % requires output data CSV file from MOOSE
 real_E = 0;
 imag_E = 0;
 mag_E = 1;
-phase_E = 1;
+phase_E = 0;
 time_E = 0;
 analytic_time_E = 0;
 slice = 0;
@@ -138,11 +138,11 @@ for i = 1:num_triangles
     linear_basis_coefficients = inv(triangle_coord_matrix);
     triangle_area = abs(det(triangle_coord_matrix))/2;
     
-    centroid_x = (1/3)*(node_list(current_nodes(1),1) + ...
-        node_list(current_nodes(2),1) + node_list(current_nodes(3),1));
+    centroid_x = (1/3)*(node_list(current_nodes(1,1),1) + ...
+        node_list(current_nodes(1,2),1) + node_list(current_nodes(1,3),1));
     
-    centroid_y = (1/3)*(node_list(current_nodes(1),2) + ...
-        node_list(current_nodes(2),2) + node_list(current_nodes(3),2));
+    centroid_y = (1/3)*(node_list(current_nodes(1,1),2) + ...
+        node_list(current_nodes(1,2),2) + node_list(current_nodes(1,3),2));
         
     % CONSTRUCT K CONTRIBUTION FOR CURRENT TRIANGLE WITHOUT BOUNDARY 
     % CONDITIONS
@@ -151,8 +151,8 @@ for i = 1:num_triangles
         for s = r:3
             % Determine if nodes r and s are on boundary, neglecting check 
             % for exit
-            node_r = current_nodes(r);
-            node_s = current_nodes(s);
+            node_r = current_nodes(1,r);
+            node_s = current_nodes(1,s);
             is_r_on_sides = sum(wall_edge_nodes == node_r);
             is_r_on_exit = sum(exit_edge_nodes == node_r);
             is_s_on_sides = sum(wall_edge_nodes == node_s);
@@ -198,47 +198,47 @@ for i = 1:num_triangles
         end
     end
 
-    % CONSTRUCT F CONTRIBUTION WITH PORT BOUNDARY CONDITION
+    % CONSTRUCT F CONTRIBUTION WITH PORT AND ABSORBING BC
 
     for r = 1:3
-        node_rF = current_nodes(r);
+        node_rF = current_nodes(1,r);
+        
         is_rF_on_boundary = sum(wall_edge_nodes == node_rF) + ...
             sum(exit_edge_nodes == node_rF) + ...
             sum(port_edge_nodes == node_rF);
-        
         is_rF_on_exit_boundary = sum(exit_edge_nodes == node_rF);
-        
         is_rF_on_port_boundary = sum(port_edge_nodes == node_rF);
-        
-        % Estimate integral via three point gaussian quadrature (incrementing 
-        % one node at a time) 
-        increment = triangle_area/3*current_term;
-        
+
         trial_rF = linear_basis_coefficients(1,r)+...
                 linear_basis_coefficients(2,r)*centroid_x + ...
                 linear_basis_coefficients(3,r)*centroid_y;
             
-        if is_rF_on_exit_boundary == 1 % ABSORBING BOUNDARY CONDITION 
-            
-            F(node_rF,1) = F(node_rF,1) + increment;
-            % First-order
-            %K(node_rF,node_rF) = K(node_rF,node_rF) - triangle_area*1i*k0*trial_rF; 
-            % Second-order
-            K(node_rF,node_rF) = K(node_rF,node_rF) - triangle_area*1i*k0*(1-0.5*(pi*m/width)^2/k0^2)*trial_rF;
-        end
+        % Estimate integral using one point gaussian quadrature 
+        increment = triangle_area*current_term*trial_rF;
         
-        if is_rF_on_port_boundary == 1 % PORT BOUNDARY CONDITION 
+        if is_rF_on_boundary == 1
             
-            trial_rF = linear_basis_coefficients(1,r)+...
-                linear_basis_coefficients(2,r)*centroid_x + ...
-                linear_basis_coefficients(3,r)*centroid_y;
-            
-            F(node_rF,1) = F(node_rF,1) + increment - triangle_area*2*1i*k0*init_E*sin(pi*m*centroid_y/width)*exp(-1i*k0*centroid_x);
-            
-            K(node_rF,node_rF) = K(node_rF,node_rF) - triangle_area*1i*k0*trial_rF;
-        end
+            % THESE INTEGRALS ARE INCORRECT
+            if is_rF_on_exit_boundary == 1 % ABSORBING BOUNDARY CONDITION 
+
+                F(node_rF,1) = F(node_rF,1) + increment;
+
+                % First-order
+                %K(node_rF,node_rF) = K(node_rF,node_rF) - triangle_area*1i*k0*trial_rF; 
+                % Second-order
+                K(node_rF,node_rF) = K(node_rF,node_rF) - triangle_area*1i*k0*(1-0.5*(pi*m/width)^2/k0^2)*trial_rF;
+            end
+
+            if is_rF_on_port_boundary == 1 % PORT BOUNDARY CONDITION 
+
+
+
+                F(node_rF,1) = F(node_rF,1) + increment - triangle_area*2*1i*k0*init_E*sin(pi*m*centroid_y/width)*exp(1i*k0*centroid_x);
+
+                K(node_rF,node_rF) = K(node_rF,node_rF) - triangle_area*1i*k0*trial_rF;
+            end
         
-        if is_rF_on_boundary == 0
+        elseif is_rF_on_boundary == 0
             F(node_rF,1) = F(node_rF,1) + increment;
         end
     end
@@ -255,13 +255,12 @@ for i = 1:num_triangles
     % CONTINUITY IN VALUE, BELOW, and CONTINUITY IN THE FIRST DERIVATIVE IN
     % MAIN LOOP)
 
-%     for j = 1:length(right_edge_nodes)
-%         BC_current_node_right = right_edge_nodes(j);
-%         BC_current_node_left = left_edge_nodes(j);
+%     for j = 1:length(bottom_edge_nodes)
+%         BC_current_node_bottom = bottom_edge_nodes(j);
+%         BC_current_node_top = top_edge_nodes(j);
 %         % Continuity in magnitude
-%         K(BC_current_node_right,BC_current_node_right) = 1;
-%         K(BC_current_node_right,BC_current_node_left) = -1;
-%         F(BC_current_node_right,1) = 0;
+%         K(BC_current_node_bottom,BC_current_node_top) = K(BC_current_node_bottom,BC_current_node_top) - 1i*k0;        
+%         K(BC_current_node_top,BC_current_node_bottom) = K(BC_current_node_top,BC_current_node_bottom) + j*k0;
 %     end
     
 end  
@@ -269,25 +268,39 @@ end
 % Solve system of equations
 U = K\F;
 
+% Initial signal to use for analysis
+E_initial = init_E.*sin(pi*m*node_list(:,2)/width).*exp(1i*k0*node_list(:,1));
+
+% Calculate phase of wave to test for propagation (sawtooth = good!)
 phase = atan2(imag(U),real(U));
 
+% Calculate code solution "in time" and analytic time solution
 rF_cycles = 20;
-t_max = rF_cycles/omega;
+[E_time,E_analytic_time] = timeAnalysis(U,node_list,omega,beta,width,init_E,rF_cycles);
 
-t = 0:t_max/100:t_max;
-
-E_time = U*exp(-1i*omega*t);
-
-E_analytic_time = zeros(length(node_list(:,1)),length(t));
-
-for i=1:length(t)    
-    E_analytic_time(:,i) = init_E*sin((pi/width)*node_list(:,2)).*cos(omega*t(i)-beta*node_list(:,1));
-end
+num_pts = 200;
+num_sweeps = 1;
+windowed = 0;
+% FFT analysis of solution
+[k_axis,spectrum,k_parallel,R,k_calc,power] = FFTanalysis(k0,node_list,U,len,width,num_pts,'natural',windowed);
+figure
+plot(k_axis,spectrum)
+title('FFT of E_z')
+xlabel('k (m^{-1})')
+ylabel('|fft(E_z)|')
+% FFT analysis of initial signal
+[k_vec_init,k_spectrum_init] = FFTanalysis(k0,node_list,E_initial,len,width,num_pts,'natural',windowed);
+figure
+plot(k_vec_init,k_spectrum_init)
+title('FFT of E_z^{inc}')
+xlabel('k (m^{-1})')
+ylabel('|fft(E_z^{inc})|')
 
 %----------------------------
 %   PLOTTING
 %----------------------------
 
+% solution magnitude
 if mag_E == 1
     figure
     trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),abs(U),...
@@ -298,6 +311,7 @@ if mag_E == 1
     ylabel('Y')
 end
 
+% solution real component
 if real_E == 1
     figure
     trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),real(U),...
@@ -308,6 +322,7 @@ if real_E == 1
     ylabel('Y')
 end
 
+% solution imaginary component
 if imag_E == 1
     figure
     trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),imag(U),...
@@ -318,6 +333,7 @@ if imag_E == 1
     ylabel('Y')
 end
 
+% Plot phase calculation for solution
 if phase_E == 1
     figure
     trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),phase,...
@@ -358,17 +374,18 @@ if analytic_time_E == 1
     end
 end
 
-% Take a slice from a trisurf plot at the center of the waveguide (x = width/2)
+% Plot slice from a trisurf plot at the center of the waveguide (x = width/2)
 if slice == 1
-    num_pts = 100;
+    num_pts = 200;
+    location = width/2;
     method = 'natural';
-    xy = [linspace(0,len,num_pts)', ones(num_pts,1).*(width/2)];
-    z = griddata(node_list(:,1),node_list(:,2),phase,xy(:,1),xy(:,2));
-
+    xy = [linspace(0,len,num_pts)', ones(num_pts,1).*(location)];
+    z = griddata(node_list(:,1),node_list(:,2),U,xy(:,1),xy(:,2),method);
     figure
     plot(xy(:,1),z);
 end
 
+% Plot MOOSE solution and calculate RMS error
 if MOOSE_comparison == 1
     sortMOOSEoutput
     figure
