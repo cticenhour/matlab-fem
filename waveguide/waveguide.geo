@@ -1,11 +1,10 @@
 width = 10;
-length = width*5;
+length = 80;
 
 Point(1) = {0, 0, 0};
-Point(2) = {0, length, 0};
-Point(3) = {width, length, 0};
-Point(4) = {width, 0, 0};
-
+Point(2) = {length, 0, 0};
+Point(3) = {length, width, 0};
+Point(4) = {0, width, 0};
 
 Line(1) = {1, 2};
 Line(2) = {2, 3};
@@ -15,9 +14,9 @@ Line Loop(5) = {1, 2, 3, 4};
 
 Plane Surface(6) = {5};
 
-Physical Line("bottom") = {4};
-Physical Line("top") = {2};
-Physical Line("left") = {1};
-Physical Line("right") = {3};
+Physical Line("bottom") = {1};
+Physical Line("exit") = {2};
+Physical Line("top") = {3};
+Physical Line("port") = {4};
 
 Physical Surface(7) = {6};
