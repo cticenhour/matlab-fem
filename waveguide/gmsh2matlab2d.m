@@ -71,13 +71,12 @@ while(1)
     j = isempty(k);
     if j == 0
        total = str2double(fgetl(fileID));
-       node_list = zeros(total,3);
+       node_list = zeros(total,2);
        for i=1:total
            line = fgetl(fileID);
            line_split = strsplit(line);
            node_list(i,1) = str2double(line_split(2));
            node_list(i,2) = str2double(line_split(3));
-           node_list(i,3) = str2double(line_split(4));
        end
        break
     end

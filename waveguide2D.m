@@ -14,9 +14,11 @@ close all
 % SWITCHES AND PLOTTING OPTIONS
 %=============================
 
-mesh_program = 1; % distMesh = 1, Gmsh = 0
+mesh_program = 0; % distMesh = 1, Gmsh = 0
     % NOTE: gmsh2matlab REQUIRES NODE, ELEMENT, AND EDGE TXT FILES TO BE 
     %       CREATED FROM GMSH OUTPUT FILE
+    
+filename = 'waveguide05.msh';
 
 MOOSE_comparison = 0;   % requires output data CSV file from MOOSE
 
@@ -118,7 +120,27 @@ if mesh_program == 1
     num_nodes = size(node_list,1);
     num_triangles = size(triangle_list,1);
 elseif mesh_program == 0
-    gmsh2matlab_waveguide
+    [node_list,triangle_list,boundary_edges,boundary_names] = ...
+                                        gmsh2matlab2d(filename);
+    % Create edge nodes and edges arrays, labeled with appropriate names
+    total_bounds = length(boundary_names);
+    for i = 1:total_bounds
+        eval([boundary_names{i},'_edge_nodes = nonzeros(unique(ismember(boundary_edges(:,3),',num2str(i),').*boundary_edges(:,1:2)));'])
+        eval([boundary_names{i},'_edges = [nonzeros(ismember(boundary_edges(:,3),',num2str(i),').*boundary_edges(:,1)), nonzeros(ismember(boundary_edges(:,3),',num2str(i),').*boundary_edges(:,2))];'])
+    end
+    
+    % Clean up task - Remove duplicate corners on exit and port from walls
+    top_edge_nodes(ismember(top_edge_nodes,intersect(top_edge_nodes,port_edge_nodes))) = [];
+    top_edge_nodes(ismember(top_edge_nodes,intersect(top_edge_nodes,exit_edge_nodes))) = [];
+    
+    bottom_edge_nodes(ismember(bottom_edge_nodes,intersect(bottom_edge_nodes,port_edge_nodes))) = [];
+    bottom_edge_nodes(ismember(bottom_edge_nodes,intersect(bottom_edge_nodes,exit_edge_nodes))) = [];
+    
+    % Create other needed things
+    wall_edge_nodes = [top_edge_nodes; bottom_edge_nodes];
+    num_nodes = size(node_list,1);
+    num_triangles = size(triangle_list,1);
+    
 end
     
 % Initialize parts of system KU=F, where u is solution vector
@@ -203,9 +225,9 @@ for i = 1:num_triangles
     for r = 1:3
         node_rF = current_nodes(1,r);
         
-        is_rF_on_boundary = sum(wall_edge_nodes == node_rF) + ...
-            sum(exit_edge_nodes == node_rF) + ...
-            sum(port_edge_nodes == node_rF);
+%         is_rF_on_boundary = sum(wall_edge_nodes == node_rF) + ...
+%             sum(exit_edge_nodes == node_rF) + ...
+%             sum(port_edge_nodes == node_rF);
         is_rF_on_exit_boundary = sum(exit_edge_nodes == node_rF);
         is_rF_on_port_boundary = sum(port_edge_nodes == node_rF);
 
@@ -216,29 +238,135 @@ for i = 1:num_triangles
         % Estimate integral using one point gaussian quadrature 
         increment = triangle_area*current_term*trial_rF;
         
-        if is_rF_on_boundary == 1
+        if is_rF_on_exit_boundary == 1 || is_rF_on_port_boundary == 1
             
-            % THESE INTEGRALS ARE INCORRECT
             if is_rF_on_exit_boundary == 1 % ABSORBING BOUNDARY CONDITION 
+                
+                F(node_rF,1) = F(node_rF,1) + increment;             
 
-                F(node_rF,1) = F(node_rF,1) + increment;
-
-                % First-order
+                % First-order - OLD INCORRECT INTEGRALS
                 %K(node_rF,node_rF) = K(node_rF,node_rF) - triangle_area*1i*k0*trial_rF; 
-                % Second-order
-                K(node_rF,node_rF) = K(node_rF,node_rF) - triangle_area*1i*k0*(1-0.5*(pi*m/width)^2/k0^2)*trial_rF;
+                % Second-order - OLD
+                %K(node_rF,node_rF) = K(node_rF,node_rF) - triangle_area*1i*k0*(1-0.5*(pi*m/width)^2/k0^2)*trial_rF;
+                
+                % INTEGRATIONS ARE PERFORMED USING THE COMPOSITE SIMPSON'S
+                % RULE
+                
+                % Get other endpoint of boundary edge for node_rF              
+                adj_nodes = unique(nonzeros(exit_edges.*sum(ismember(exit_edges,node_rF),2)));
+                node2 = adj_nodes(ismember(adj_nodes,current_nodes) &~ ismember(adj_nodes,node_rF));
+                
+                if sum(node2) ~= 0 % If node_rF is on a triangle with a full edge on the boundary
+                    halfway_y = 0.5*(node_list(node2,2) + node_list(node_rF,2));
+
+                    % Calculate values for integration based on relative
+                    % node positions
+                    if node_list(node_rF,2) > node_list(node2,2)
+                        trial_a = linear_basis_coefficients(1,r)+...
+                                linear_basis_coefficients(2,r)*node_list(node2,1) + ...
+                                linear_basis_coefficients(3,r)*node_list(node2,2);
+                        trial_half = linear_basis_coefficients(1,r)+...
+                                linear_basis_coefficients(2,r)*node_list(node2,1) + ...
+                                linear_basis_coefficients(3,r)*halfway_y;
+                        trial_b = linear_basis_coefficients(1,r)+...
+                                linear_basis_coefficients(2,r)*node_list(node_rF,1) + ...
+                                linear_basis_coefficients(3,r)*node_list(node_rF,2);
+                        
+                        b_minus_a = node_list(node_rF,2) - node_list(node2,2);
+                    else
+                        trial_a = linear_basis_coefficients(1,r)+...
+                                linear_basis_coefficients(2,r)*node_list(node_rF,1) + ...
+                                linear_basis_coefficients(3,r)*node_list(node_rF,2);
+                        trial_half = linear_basis_coefficients(1,r)+...
+                                linear_basis_coefficients(2,r)*node_list(node_rF,1) + ...
+                                linear_basis_coefficients(3,r)*halfway_y;
+                        trial_b = linear_basis_coefficients(1,r)+...
+                                linear_basis_coefficients(2,r)*node_list(node2,1) + ...
+                                linear_basis_coefficients(3,r)*node_list(node2,2);
+                            
+                        b_minus_a = node_list(node2,2) - node_list(node_rF,2);
+                    end
+                else % If node_rF is simply a point on the edge
+                    trial_a = 0;        % Sets integration to zero - 
+                    trial_half = 0;     % cannot integrate over a point and 
+                    trial_b = 0;        % integration is covered in
+                    b_minus_a = 0;      % triangles with edges on the
+                                        % boundary
+                end
+                
+                %K(node_rF,node_rF) = K(node_rF,node_rF) - (b_minus_a/6)*1i*k0*(trial_a + 4*trial_half + trial_b);
+                K(node_rF,node_rF) = K(node_rF,node_rF) - (b_minus_a/6)*1i*k0*(1-0.5*(pi*m/width)^2/k0^2)*(trial_a + 4*trial_half + trial_b);
             end
 
             if is_rF_on_port_boundary == 1 % PORT BOUNDARY CONDITION 
 
+                % INTEGRATIONS ARE PERFORMED USING THE COMPOSITE SIMPSON'S
+                % RULE
+                
+                % Get other endpoint of boundary edge for node_rF              
+                adj_nodes = unique(nonzeros(port_edges.*sum(ismember(port_edges,node_rF),2)));
+                node2 = adj_nodes(ismember(adj_nodes,current_nodes) &~ ismember(adj_nodes,node_rF));
+                
+                if sum(node2) ~= 0 % If node_rF is on a triangle with a full edge on the boundary
+                    halfway_y = 0.5*(node_list(node2,2) + node_list(node_rF,2));
 
+                    % Calculate values for integration based on relative
+                    % node positions
+                    if node_list(node_rF,2) > node_list(node2,2)
+                        trial_a = linear_basis_coefficients(1,r)+...
+                                linear_basis_coefficients(2,r)*node_list(node2,1) + ...
+                                linear_basis_coefficients(3,r)*node_list(node2,2);
+                        trial_half = linear_basis_coefficients(1,r)+...
+                                linear_basis_coefficients(2,r)*node_list(node2,1) + ...
+                                linear_basis_coefficients(3,r)*halfway_y;
+                        trial_b = linear_basis_coefficients(1,r)+...
+                                linear_basis_coefficients(2,r)*node_list(node_rF,1) + ...
+                                linear_basis_coefficients(3,r)*node_list(node_rF,2);
 
-                F(node_rF,1) = F(node_rF,1) + increment - triangle_area*2*1i*k0*init_E*sin(pi*m*centroid_y/width)*exp(1i*k0*centroid_x);
+                        inc_a = sin(pi*m*node_list(node2,2)/width)*exp(1i*k0*node_list(node2,1));
+                        inc_half = sin(pi*m*halfway_y/width)*exp(1i*k0*node_list(node2,1));
+                        inc_b = sin(pi*m*node_list(node_rF,2)/width)*exp(1i*k0*node_list(node_rF,1));
+                        
+                        b_minus_a = node_list(node_rF,2) - node_list(node2,2);
+                    else
+                        trial_a = linear_basis_coefficients(1,r)+...
+                                linear_basis_coefficients(2,r)*node_list(node_rF,1) + ...
+                                linear_basis_coefficients(3,r)*node_list(node_rF,2);
+                        trial_half = linear_basis_coefficients(1,r)+...
+                                linear_basis_coefficients(2,r)*node_list(node_rF,1) + ...
+                                linear_basis_coefficients(3,r)*halfway_y;
+                        trial_b = linear_basis_coefficients(1,r)+...
+                                linear_basis_coefficients(2,r)*node_list(node2,1) + ...
+                                linear_basis_coefficients(3,r)*node_list(node2,2);
 
-                K(node_rF,node_rF) = K(node_rF,node_rF) - triangle_area*1i*k0*trial_rF;
+                        inc_a = sin(pi*m*node_list(node_rF,2)/width)*exp(1i*k0*node_list(node_rF,1));
+                        inc_half = sin(pi*m*halfway_y/width)*exp(1i*k0*node_list(node_rF,1));
+                        inc_b = sin(pi*m*node_list(node2,2)/width)*exp(1i*k0*node_list(node2,1));
+                        
+                        b_minus_a = node_list(node2,2) - node_list(node_rF,2);
+                    end
+                    
+                else % If node_rF is simply a point on the edge
+                    trial_a = 0;        % Sets integration to zero - 
+                    trial_half = 0;     % cannot integrate over a point and 
+                    trial_b = 0;        % integration is covered in
+                    inc_a = 0;          % triangles with edges on the
+                    inc_half = 0;       % boundary
+                    inc_b = 0;
+                    b_minus_a = 0;
+                end                    
+                
+                F(node_rF,1) = F(node_rF,1) + increment - (b_minus_a/6)*2*1i*k0*init_E*(inc_a + 4*inc_half + inc_b);
+
+                K(node_rF,node_rF) = K(node_rF,node_rF) - (b_minus_a/6)*1i*k0*(trial_a + 4*trial_half + trial_b);
+                
+                % OLD
+%                 F(node_rF,1) = F(node_rF,1) + increment - triangle_area*2*1i*k0*init_E*sin(pi*m*centroid_y/width)*exp(1i*k0*centroid_x);
+% 
+%                 K(node_rF,node_rF) = K(node_rF,node_rF) - triangle_area*1i*k0*trial_rF;
             end
         
-        elseif is_rF_on_boundary == 0
+        else
             F(node_rF,1) = F(node_rF,1) + increment;
         end
     end
