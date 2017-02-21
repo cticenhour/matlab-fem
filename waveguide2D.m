@@ -5,7 +5,7 @@
 % Organization: North Carolina State University/Oak Ridge National
 %                                               Laboratory
 % December 2016
-% last update: February 2, 2017
+% last update: February 8, 2017
 
 clear all
 close all
@@ -18,18 +18,19 @@ mesh_program = 0; % distMesh = 1, Gmsh = 0
     % NOTE: gmsh2matlab REQUIRES NODE, ELEMENT, AND EDGE TXT FILES TO BE 
     %       CREATED FROM GMSH OUTPUT FILE
     
-filename = 'waveguide05.msh';
+filename = 'waveguide.msh';
 
 MOOSE_comparison = 0;   % requires output data CSV file from MOOSE
 
 % Plotting switches
-real_E = 0;
-imag_E = 0;
-mag_E = 1;
+real_E = 1;
+imag_E = 1;
+mag_E = 0;
 phase_E = 0;
 time_E = 0;
 analytic_time_E = 0;
 slice = 0;
+fft = 0;
 
 %=============================
 % IMPORTANT CONSTANTS
@@ -410,19 +411,9 @@ num_pts = 200;
 num_sweeps = 1;
 windowed = 0;
 % FFT analysis of solution
-[k_axis,spectrum,k_parallel,R,k_calc,power] = FFTanalysis(k0,node_list,U,len,width,num_pts,'natural',windowed);
-figure
-plot(k_axis,spectrum)
-title('FFT of E_z')
-xlabel('k (m^{-1})')
-ylabel('|fft(E_z)|')
+[k_axis,spectrum,k_parallel,R,k_calc,angle,R_theory_first, R_theory_second,power] = FFTanalysis(k0,node_list,U,len,width,num_pts,'natural',windowed);
 % FFT analysis of initial signal
 [k_vec_init,k_spectrum_init] = FFTanalysis(k0,node_list,E_initial,len,width,num_pts,'natural',windowed);
-figure
-plot(k_vec_init,k_spectrum_init)
-title('FFT of E_z^{inc}')
-xlabel('k (m^{-1})')
-ylabel('|fft(E_z^{inc})|')
 
 %----------------------------
 %   PLOTTING
@@ -511,6 +502,20 @@ if slice == 1
     z = griddata(node_list(:,1),node_list(:,2),U,xy(:,1),xy(:,2),method);
     figure
     plot(xy(:,1),z);
+end
+
+% FFT plots
+if fft == 1
+    figure
+    plot(k_axis,spectrum)
+    title('FFT of E_z')
+    xlabel('k (m^{-1})')
+    ylabel('|fft(E_z)|')
+    figure
+    plot(k_vec_init,k_spectrum_init)
+    title('FFT of E_z^{inc}')
+    xlabel('k (m^{-1})')
+    ylabel('|fft(E_z^{inc})|')
 end
 
 % Plot MOOSE solution and calculate RMS error
