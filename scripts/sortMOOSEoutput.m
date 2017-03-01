@@ -21,17 +21,21 @@ end
 data = csvread(filename,1,0);
 
 % required arrays initialization
-U_MOOSE = zeros(length(data(:,1)),1);
+U_MOOSE_mag = zeros(length(data(:,1)),1);
+U_MOOSE_Re = zeros(length(data(:,1)),1);
+U_MOOSE_Im = zeros(length(data(:,1)),1);
 
-node_list_MOOSE_temp = data(:,4:5);
+node_list_MOOSE_temp = data(:,9:10);
 
-dist = zeros(length(U_MOOSE),1);
+dist = zeros(length(U_MOOSE_mag),1);
 
 % Sorting loops based on distance functions
 for i=1:length(node_list_MOOSE_temp)
     dist = sqrt((node_list(:,1) - node_list_MOOSE_temp(i,1)).^2 + ...
         (node_list(:,2) - node_list_MOOSE_temp(i,2)).^2);
     [min_dist,min_index]=min(dist);
-    U_MOOSE(min_index) = data(i,1);
+    U_MOOSE_mag(min_index) = data(i,1);
+    U_MOOSE_Re(min_index) = data(i,4);
+    U_MOOSE_Im(min_index) = data(i,3);
 end
 

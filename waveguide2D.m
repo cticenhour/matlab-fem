@@ -5,7 +5,7 @@
 % Organization: North Carolina State University/Oak Ridge National
 %                                               Laboratory
 % December 2016
-% last update: February 8, 2017
+% last update: March 1, 2017
 
 clear all
 close all
@@ -20,16 +20,17 @@ mesh_program = 0; % distMesh = 1, Gmsh = 0
     
 filename = 'waveguide.msh';
 
-MOOSE_comparison = 0;   % requires output data CSV file from MOOSE
+MOOSE_comparison = 1;   % requires output data CSV file from MOOSE
 
 % Plotting switches
-real_E = 1;
-imag_E = 1;
+real_E = 0;
+imag_E = 0;
 mag_E = 0;
 phase_E = 0;
 time_E = 0;
 analytic_time_E = 0;
-slice = 0;
+slice_real = 1;
+slice_imag = 1;
 fft = 0;
 
 %=============================
@@ -273,6 +274,12 @@ for i = 1:num_triangles
                                 linear_basis_coefficients(2,r)*node_list(node_rF,1) + ...
                                 linear_basis_coefficients(3,r)*node_list(node_rF,2);
                         
+                        %temp
+                        inc_a = sin(pi*m*node_list(node2,2)/width)*exp(1i*k0*node_list(node2,1));
+                        inc_half = sin(pi*m*halfway_y/width)*exp(1i*k0*node_list(node2,1));
+                        inc_b = sin(pi*m*node_list(node_rF,2)/width)*exp(1i*k0*node_list(node_rF,1));
+                            
+                            
                         b_minus_a = node_list(node_rF,2) - node_list(node2,2);
                     else
                         trial_a = linear_basis_coefficients(1,r)+...
@@ -284,6 +291,13 @@ for i = 1:num_triangles
                         trial_b = linear_basis_coefficients(1,r)+...
                                 linear_basis_coefficients(2,r)*node_list(node2,1) + ...
                                 linear_basis_coefficients(3,r)*node_list(node2,2);
+                        
+                        % temp
+                        inc_a = sin(pi*m*node_list(node_rF,2)/width)*exp(1i*k0*node_list(node_rF,1));
+                        inc_half = sin(pi*m*halfway_y/width)*exp(1i*k0*node_list(node_rF,1));
+                        inc_b = sin(pi*m*node_list(node2,2)/width)*exp(1i*k0*node_list(node2,1));
+                        
+                            
                             
                         b_minus_a = node_list(node2,2) - node_list(node_rF,2);
                     end
@@ -293,10 +307,16 @@ for i = 1:num_triangles
                     trial_b = 0;        % integration is covered in
                     b_minus_a = 0;      % triangles with edges on the
                                         % boundary
+                    % temp                    
+                    inc_a = 0;         
+                    inc_half = 0;       
+                    inc_b = 0;
                 end
                 
-                %K(node_rF,node_rF) = K(node_rF,node_rF) - (b_minus_a/6)*1i*k0*(trial_a + 4*trial_half + trial_b);
-                K(node_rF,node_rF) = K(node_rF,node_rF) - (b_minus_a/6)*1i*k0*(1-0.5*(pi*m/width)^2/k0^2)*(trial_a + 4*trial_half + trial_b);
+                %F(node_rF,1) = F(node_rF,1) - (b_minus_a/6)*2*1i*k0*1e-5*(inc_a + 4*inc_half + inc_b);
+                
+                K(node_rF,node_rF) = K(node_rF,node_rF) - (b_minus_a/6)*1i*k0*(trial_a + 4*trial_half + trial_b);
+                %K(node_rF,node_rF) = K(node_rF,node_rF) - (b_minus_a/6)*1i*k0*(1-0.5*(pi*m/width)^2/k0^2)*(trial_a + 4*trial_half + trial_b);
             end
 
             if is_rF_on_port_boundary == 1 % PORT BOUNDARY CONDITION 
@@ -493,15 +513,42 @@ if analytic_time_E == 1
     end
 end
 
-% Plot slice from a trisurf plot at the center of the waveguide (x = width/2)
-if slice == 1
+% Plot slice from a real trisurf plot at the center of the waveguide (y = width/2)
+if slice_real == 1
     num_pts = 200;
     location = width/2;
     method = 'natural';
     xy = [linspace(0,len,num_pts)', ones(num_pts,1).*(location)];
-    z = griddata(node_list(:,1),node_list(:,2),U,xy(:,1),xy(:,2),method);
+    z = griddata(node_list(:,1),node_list(:,2),real(U),xy(:,1),xy(:,2),method);
     figure
-    plot(xy(:,1),z);
+    plot(xy(:,1),z,'-*');
+    xlabel('X')
+    ylabel('Real(E)')
+    
+    analytic_real = init_E*sin(pi/width*(width/2))*cos(-sqrt(k0^2 - (pi/width)^2)*xy(:,1));
+    hold on
+    plot(xy(:,1),analytic_real,'-*')
+    hold off
+    legend('MATLAB','analytic')
+end
+
+% Plot slice from an imag trisurf plot at the center of the waveguide (y = width/2)
+if slice_imag == 1
+    num_pts = 200;
+    location = width/2;
+    method = 'natural';
+    xy = [linspace(0,len,num_pts)', ones(num_pts,1).*(location)];
+    z = griddata(node_list(:,1),node_list(:,2),imag(U),xy(:,1),xy(:,2),method);
+    figure
+    plot(xy(:,1),z,'-*');
+    xlabel('X')
+    ylabel('Imag(E)')
+    
+    analytic_imag = init_E*sin(pi/width*(width/2))*sin(-sqrt(k0^2 - (pi/width)^2)*xy(:,1));
+    hold on
+    plot(xy(:,1),analytic_imag,'-*')
+    hold off
+    legend('MATLAB','analytic')
 end
 
 % FFT plots
@@ -521,13 +568,31 @@ end
 % Plot MOOSE solution and calculate RMS error
 if MOOSE_comparison == 1
     sortMOOSEoutput
-    figure
-    trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),U_MOOSE,'edgecolor','k','facecolor','interp')
-    view(2),axis image,colorbar
-    title('MOOSE solution');
-    xlabel('X')
-    ylabel('Y')
+%     figure
+%     trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),U_MOOSE_Im,'edgecolor','k','facecolor','interp')
+%     view(2),axis image,colorbar
+%     xlabel('X')
+%     ylabel('Y')
     
-    RMS_MOOSE_error = sqrt(sum((U_MOOSE - U).^2)/length(U))
+    num_pts = 200;
+    location = width/2;
+    method = 'natural';
+    xy = [linspace(0,len,num_pts)', ones(num_pts,1).*(location)];
+    z = griddata(node_list(:,1),node_list(:,2),U_MOOSE_Re,xy(:,1),xy(:,2),method);
+    figure(1)
+    hold on
+    plot(xy(:,1),z,'-*');
+    hold off
+    legend('MATLAB', 'analytic', 'MOOSE')
+    
+    xy = [linspace(0,len,num_pts)', ones(num_pts,1).*(location)];
+    z = griddata(node_list(:,1),node_list(:,2),U_MOOSE_Im,xy(:,1),xy(:,2),method);
+    figure(2)
+    hold on
+    plot(xy(:,1),z,'-*');
+    hold off
+    legend('MATLAB', 'analytic', 'MOOSE')
+    
+    %RMS_MOOSE_error = sqrt(sum((U_MOOSE - U).^2)/length(U))
 end
         
