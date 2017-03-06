@@ -16,7 +16,7 @@ end
 
 k_axis = 2.*pi./mean(diff(linspace(0,len,num_pts))).*[-num_pts/2:(num_pts/2-1)]./num_pts;
 
-spectrum = fftshift(abs(fft(z)/len));
+spectrum = fftshift(abs(fft(z')/len));
 
 
 halfway = round(length(spectrum)/2);
