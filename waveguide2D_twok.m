@@ -5,18 +5,27 @@
 % Organization: North Carolina State University/Oak Ridge National
 %                                               Laboratory
 % December 2016
-% last update: March 8, 2017
+% last update: March 1, 2017
+
+clear all
+%close all
 
 %=============================
 % SWITCHES AND PLOTTING OPTIONS
 %=============================
+
+mesh_program = 0; % distMesh = 1, Gmsh = 0
+    % NOTE: gmsh2matlab REQUIRES NODE, ELEMENT, AND EDGE TXT FILES TO BE 
+    %       CREATED FROM GMSH OUTPUT FILE
     
 filename = 'waveguide.msh';
 
 MOOSE_comparison = 0;   % requires output data CSV file from MOOSE
 
 % Plotting switches
-surface_plots = 1;
+real_E = 0;
+imag_E = 0;
+mag_E = 1;
 phase_E = 0;
 time_E = 0;
 analytic_time_E = 0;
@@ -35,6 +44,8 @@ m = 1;
 
 init_E = 1;
 
+source = 0;
+
 omega = 2*pi*20e6;
 
 mu0 = 4*pi*1e-7;
@@ -51,32 +62,88 @@ k = k0*(1+1i*0);
 
 beta = sqrt(k^2 - (pi/width)^2);
 
-source = 0;
+current_term = 1i*k*Z0*source;
 
 %=============================
 
-% Create usable connectivity info from GMSH mesh file
+if mesh_program == 1
+    
+    % Generate 2D mesh using DistMesh (see 
+    % http://persson.berkeley.edu/distmesh for more info)
+    % KEY NOTES FOR DISTMESH
+    % node_list = node positions -- N-by-2 array contains x,y coordinates
+    %                               for each of the N nodes
+    % triangle_list = triangle indices -- row associated with each triangle 
+    %                                     has 3 integer entries to specify 
+    %                                     node numbers corresponding to 
+    %                                     rows in node_list
 
-[node_list,triangle_list,boundary_edges,boundary_names] = ...
-                                    gmsh2matlab2d(filename);
-% Create edge nodes and edges arrays, labeled with appropriate names
-total_bounds = length(boundary_names);
-for i = 1:total_bounds
-    eval([boundary_names{i},'_edge_nodes = nonzeros(unique(ismember(boundary_edges(:,3),',num2str(i),').*boundary_edges(:,1:2)));'])
-    eval([boundary_names{i},'_edges = [nonzeros(ismember(boundary_edges(:,3),',num2str(i),').*boundary_edges(:,1)), nonzeros(ismember(boundary_edges(:,3),',num2str(i),').*boundary_edges(:,2))];'])
+    initial_edge_width = min(len,width)/5;
+
+    geo_dist_func = @(p) drectangle(p,0,len,0,width);
+
+    bounds = [0,0;len,width];
+    important_pts = [0,0;len,0;0,width;len,width];
+
+    % Note: @huniform refers to uniform mesh
+    % See http://persson.berkeley.edu/distmesh/ for usage info
+    [node_list, triangle_list] = distmesh2d(geo_dist_func,@huniform,...
+        initial_edge_width,bounds,important_pts);
+
+    % close distmesh rendering of mesh
+    close(1)
+    
+    boundary_edges = boundedges(node_list,triangle_list);
+    edge_nodes = unique(boundary_edges);
+   
+    edge_coords = node_list(edge_nodes(:),:);
+    
+    port_logic = ismember(edge_coords(:,1),0);
+    exit_logic = ismember(edge_coords(:,1),len);
+    top_side_logic = ismember(edge_coords(:,2),width);
+    bottom_side_logic = ismember(edge_coords(:,2),0);
+    
+    exit_edge_nodes = nonzeros(exit_logic.*edge_nodes);
+    port_edge_nodes = nonzeros(port_logic.*edge_nodes);
+    top_edge_nodes = nonzeros(top_side_logic.*edge_nodes);
+    bottom_edge_nodes = nonzeros(bottom_side_logic.*edge_nodes);
+    
+    % set duplicate side corners to null values, removing them from top and
+    % bottom
+    top_edge_nodes(1) = [];
+    top_edge_nodes(length(top_edge_nodes)) = [];
+    
+    bottom_edge_nodes(1) = [];
+    bottom_edge_nodes(length(bottom_edge_nodes)) = [];
+    
+    wall_edge_nodes = [top_edge_nodes; bottom_edge_nodes];
+    
+    
+    num_nodes = size(node_list,1);
+    num_triangles = size(triangle_list,1);
+elseif mesh_program == 0
+    [node_list,triangle_list,boundary_edges,boundary_names] = ...
+                                        gmsh2matlab2d(filename);
+    % Create edge nodes and edges arrays, labeled with appropriate names
+    total_bounds = length(boundary_names);
+    for i = 1:total_bounds
+        eval([boundary_names{i},'_edge_nodes = nonzeros(unique(ismember(boundary_edges(:,3),',num2str(i),').*boundary_edges(:,1:2)));'])
+        eval([boundary_names{i},'_edges = [nonzeros(ismember(boundary_edges(:,3),',num2str(i),').*boundary_edges(:,1)), nonzeros(ismember(boundary_edges(:,3),',num2str(i),').*boundary_edges(:,2))];'])
+    end
+    
+    % Clean up task - Remove duplicate corners on exit and port from walls
+    top_edge_nodes(ismember(top_edge_nodes,intersect(top_edge_nodes,port_edge_nodes))) = [];
+    top_edge_nodes(ismember(top_edge_nodes,intersect(top_edge_nodes,exit_edge_nodes))) = [];
+    
+    bottom_edge_nodes(ismember(bottom_edge_nodes,intersect(bottom_edge_nodes,port_edge_nodes))) = [];
+    bottom_edge_nodes(ismember(bottom_edge_nodes,intersect(bottom_edge_nodes,exit_edge_nodes))) = [];
+    
+    % Create other needed things
+    wall_edge_nodes = [top_edge_nodes; bottom_edge_nodes];
+    num_nodes = size(node_list,1);
+    num_triangles = size(triangle_list,1);
+    
 end
-
-% Clean up task - Remove duplicate corners on exit and port from walls
-top_edge_nodes(ismember(top_edge_nodes,intersect(top_edge_nodes,port_edge_nodes))) = [];
-top_edge_nodes(ismember(top_edge_nodes,intersect(top_edge_nodes,exit_edge_nodes))) = [];
-
-bottom_edge_nodes(ismember(bottom_edge_nodes,intersect(bottom_edge_nodes,port_edge_nodes))) = [];
-bottom_edge_nodes(ismember(bottom_edge_nodes,intersect(bottom_edge_nodes,exit_edge_nodes))) = [];
-
-% Create other needed things
-wall_edge_nodes = [top_edge_nodes; bottom_edge_nodes];
-num_nodes = size(node_list,1);
-num_triangles = size(triangle_list,1);
     
 % Initialize parts of system KU=F, where u is solution vector
 K = zeros(num_nodes,num_nodes);
@@ -171,7 +238,7 @@ for i = 1:num_triangles
                 linear_basis_coefficients(3,r)*centroid_y;
             
         % Estimate integral using one point gaussian quadrature 
-        increment = triangle_area*source*trial_rF;
+        increment = triangle_area*current_term*trial_rF;
         
         if is_rF_on_exit_boundary == 1 || is_rF_on_port_boundary == 1
             
@@ -259,9 +326,9 @@ for i = 1:num_triangles
                                 linear_basis_coefficients(2,r)*node_list(node_rF,1) + ...
                                 linear_basis_coefficients(3,r)*node_list(node_rF,2);
 
-                        inc_a = sin(pi*m*node_list(node2,2)/width)*exp(1i*sqrt(k0^2 - (pi*m/width)^2)*node_list(node2,1));
-                        inc_half = sin(pi*m*halfway_y/width)*exp(1i*sqrt(k0^2 - (pi*m/width)^2)*node_list(node2,1));
-                        inc_b = sin(pi*m*node_list(node_rF,2)/width)*exp(1i*sqrt(k0^2 - (pi*m/width)^2)*node_list(node_rF,1));
+                        inc_a = sin(pi*m*node_list(node2,2)/width)*exp(1i*sqrt(k0^2 - (pi*m/width)^2)*node_list(node2,1)) + sin(pi*m*node_list(node2,2)/width)*exp(1i*0.5*sqrt(k0^2 - (pi*m/width)^2)*node_list(node2,1));
+                        inc_half = sin(pi*m*halfway_y/width)*exp(1i*sqrt(k0^2 - (pi*m/width)^2)*node_list(node2,1)) + sin(pi*m*halfway_y/width)*exp(1i*0.5*sqrt(k0^2 - (pi*m/width)^2)*node_list(node2,1));
+                        inc_b = sin(pi*m*node_list(node_rF,2)/width)*exp(1i*sqrt(k0^2 - (pi*m/width)^2)*node_list(node_rF,1)) + sin(pi*m*node_list(node_rF,2)/width)*exp(1i*0.5*sqrt(k0^2 - (pi*m/width)^2)*node_list(node_rF,1));
                         
                         b_minus_a = node_list(node_rF,2) - node_list(node2,2);
                     else
@@ -275,9 +342,9 @@ for i = 1:num_triangles
                                 linear_basis_coefficients(2,r)*node_list(node2,1) + ...
                                 linear_basis_coefficients(3,r)*node_list(node2,2);
 
-                        inc_a = sin(pi*m*node_list(node_rF,2)/width)*exp(-1i*sqrt(k0^2 - (pi*m/width)^2)*node_list(node_rF,1));
-                        inc_half = sin(pi*m*halfway_y/width)*exp(-1i*sqrt(k0^2 - (pi*m/width)^2)*node_list(node_rF,1));
-                        inc_b = sin(pi*m*node_list(node2,2)/width)*exp(-1i*sqrt(k0^2 - (pi*m/width)^2)*node_list(node2,1));
+                        inc_a = sin(pi*m*node_list(node_rF,2)/width)*exp(-1i*sqrt(k0^2 - (pi*m/width)^2)*node_list(node_rF,1)) + sin(pi*m*node_list(node_rF,2)/width)*exp(-1i*0.5*sqrt(k0^2 - (pi*m/width)^2)*node_list(node_rF,1));
+                        inc_half = sin(pi*m*halfway_y/width)*exp(-1i*sqrt(k0^2 - (pi*m/width)^2)*node_list(node_rF,1)) + sin(pi*m*halfway_y/width)*exp(-1i*0.5*sqrt(k0^2 - (pi*m/width)^2)*node_list(node_rF,1));
+                        inc_b = sin(pi*m*node_list(node2,2)/width)*exp(-1i*sqrt(k0^2 - (pi*m/width)^2)*node_list(node2,1)) + sin(pi*m*node_list(node2,2)/width)*exp(-1i*0.5*sqrt(k0^2 - (pi*m/width)^2)*node_list(node2,1));
                         
                         b_minus_a = node_list(node2,2) - node_list(node_rF,2);
                     end
@@ -354,37 +421,34 @@ windowed = 0;
 %   PLOTTING
 %----------------------------
 
-if surface_plots == 1
-    % solution magnitude
+% solution magnitude
+if mag_E == 1
     figure
-    subplot(3,1,1)
     trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),abs(U),...
         'edgecolor','k','facecolor','interp');
-    view(2)
-    axis image
-    colorbar
+    view(2),axis image,colorbar
     title('Magnitude of E_z')
     xlabel('Z')
     ylabel('Y')
+end
 
-    % solution real component
-    subplot(3,1,2)
+% solution real component
+if real_E == 1
+    figure
     trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),real(U),...
         'edgecolor','k','facecolor','interp');
-    view(2)
-    axis image
-    colorbar
+    view(2),axis image,colorbar
     title('Real part of E_z')
     xlabel('Z')
     ylabel('Y')
+end
 
-    % solution imaginary component
-    subplot(3,1,3)
+% solution imaginary component
+if imag_E == 1
+    figure
     trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),imag(U),...
         'edgecolor','k','facecolor','interp');
-    view(2)
-    axis image
-    colorbar
+    view(2),axis image,colorbar
     title('Imaginary part of E_z')
     xlabel('Z')
     ylabel('Y')
@@ -395,9 +459,7 @@ if phase_E == 1
     figure
     trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),phase,...
         'edgecolor','k','facecolor','interp');
-    view(2)
-    axis image
-    colorbar
+    view(2),axis image,colorbar
     title('Phase of E_z')
     xlabel('Z')
     ylabel('Y')
@@ -409,9 +471,7 @@ if time_E == 1
     peak = max(real(U));
     for j=1:length(t)
         trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),real(E_time(:,j)),'edgecolor','k','facecolor','interp');
-        view(2)
-        axis image
-        colorbar
+        view(2),axis image, colorbar
         caxis([-peak peak])
         xlabel('Z')
         ylabel('Y')
@@ -426,9 +486,7 @@ if analytic_time_E == 1
     peak = max(real(E_analytic_time(:,1)));
     for j=1:length(t)
         trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),real(E_analytic_time(:,j)),'edgecolor','k','facecolor','interp');
-        view(2)
-        axis image
-        colorbar
+        view(2),axis image, colorbar
         caxis([-peak peak])
         xlabel('Z')
         ylabel('Y')
@@ -486,16 +544,8 @@ if slice_imag == 1
     ylabel('Abs. Error, Imaginary')
 end
 
-% FFT analysis and plotting
+% FFT plots
 if fft == 1
-    num_pts = 200;
-    num_sweeps = 1;
-    windowed = 0;
-    % FFT analysis of solution
-    [k_axis,spectrum,k_parallel,R,k_calc,angle,R_theory_first, R_theory_second,power] = FFTanalysis(k0,node_list,U,len,width,num_pts,'natural',windowed);
-    % FFT analysis of initial signal
-    [k_vec_init,k_spectrum_init] = FFTanalysis(k0,node_list,E_initial,len,width,num_pts,'natural',windowed);
-    
     figure
     plot(k_axis,spectrum)
     title('FFT of E_z')
