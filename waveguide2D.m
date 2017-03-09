@@ -66,7 +66,11 @@ for i = 1:total_bounds
     eval([boundary_names{i},'_edges = [nonzeros(ismember(boundary_edges(:,3),',num2str(i),').*boundary_edges(:,1)), nonzeros(ismember(boundary_edges(:,3),',num2str(i),').*boundary_edges(:,2))];'])
 end
 
-% Clean up task - Remove duplicate corners on exit and port from walls
+edge_nodes = unique(boundary_edges);
+
+% Clean up task - Remove duplicate corners on exit and port from walls -
+% MAYBE RETHINK THIS/DO REVERSE....SEEING ARTIFACTING NEAR THIS CORNER THAT SHOWS A
+% NONZERO VALUE
 top_edge_nodes(ismember(top_edge_nodes,intersect(top_edge_nodes,port_edge_nodes))) = [];
 top_edge_nodes(ismember(top_edge_nodes,intersect(top_edge_nodes,exit_edge_nodes))) = [];
 
@@ -78,9 +82,22 @@ wall_edge_nodes = [top_edge_nodes; bottom_edge_nodes];
 num_nodes = size(node_list,1);
 num_triangles = size(triangle_list,1);
     
-% Initialize parts of system KU=F, where u is solution vector
+% Initialize parts of system KU=F, where U is solution vector
 K = zeros(num_nodes,num_nodes);
 F = zeros(num_nodes,1);
+
+% Build K and F
+
+% Term 1 - Laplacian
+K = buildKlaplacian(K,triangle_list,node_list,wall_edge_nodes);
+% Term 2 - Coefficient * Field
+K = buildKcoeff(K,triangle_list,node_list,wall_edge_nodes,k0);
+
+%K = buildKinterior(K,triangle_list,node_list,wall_edge_nodes,k0);
+F = buildFinterior(F,triangle_list,node_list,edge_nodes,source);
+
+% Fill wall node components of K and F
+
 
 % Applying element-oriented FEM algorithm to construct K and F
 for i = 1:num_triangles
@@ -94,50 +111,60 @@ for i = 1:num_triangles
     centroid_x = centroid(1,1);
     centroid_y = centroid(1,2);
         
-    % CONSTRUCT K CONTRIBUTION FOR CURRENT TRIANGLE WITHOUT BOUNDARY 
-    % CONDITIONS
+    % CONSTRUCT K CONTRIBUTION FOR CURRENT TRIANGLE 
 
-    for r = 1:3
-        for s = r:3
-            % Determine if nodes r and s are on boundary, neglecting check 
-            % for exit
-            node_r = current_nodes(1,r);
-            node_s = current_nodes(1,s);
-            is_r_on_sides = sum(wall_edge_nodes == node_r);
-            is_r_on_exit = sum(exit_edge_nodes == node_r);
-            is_s_on_sides = sum(wall_edge_nodes == node_s);
-            is_s_on_exit = sum(exit_edge_nodes == node_s);
-
-            % Determine gradients in XY from coefficients of basis fxn            
-            [trial_r,gradX_r,gradY_r] = basis(current_coords,r,centroid);
-            [trial_s,gradX_s,gradY_s] = basis(current_coords,s,centroid);
-            
-            % Estimate first term using one point gaussian quadrature
-            laplacian = -triangle_area*(gradX_r*gradX_s + gradY_r*gradY_s);
-            
-            % Estimate second term using one point gaussian quadrature
-            linear = triangle_area*(k0^2)*trial_r*trial_s;
-            
-            LHS = laplacian + linear;
-
-            if is_r_on_sides == 0 && is_s_on_sides == 0
-
-                 K(node_r,node_s) = K(node_r,node_s) + LHS;
-
-                if r ~= s
-                    K(node_s,node_r) = K(node_s,node_r) + LHS;   
-                end
-
-            elseif is_r_on_sides == 1 && is_s_on_sides == 0
-
-                K(node_s,node_r) = K(node_s,node_r) + LHS;              
-
-            elseif is_r_on_sides == 0 && is_s_on_sides == 1
-
-                K(node_r,node_s) = K(node_r,node_s) + LHS;
-
-            end
-        end
+    % Interior node contribution to K
+%     for r = 1:3
+%         for s = r:3
+%             % Determine if nodes r and s are on boundary, neglecting check 
+%             % for exit
+%             node_r = current_nodes(1,r);
+%             node_s = current_nodes(1,s);
+%             is_r_on_sides = sum(wall_edge_nodes == node_r);
+%             is_r_on_exit = sum(exit_edge_nodes == node_r);
+%             is_s_on_sides = sum(wall_edge_nodes == node_s);
+%             is_s_on_exit = sum(exit_edge_nodes == node_s);
+% 
+%             % Determine gradients in XY from coefficients of basis fxn            
+%             [trial_r,gradX_r,gradY_r] = basis(current_coords,r,centroid);
+%             [trial_s,gradX_s,gradY_s] = basis(current_coords,s,centroid);
+%             
+%             % Estimate first term using one point gaussian quadrature
+%             laplacian = -triangle_area*(gradX_r*gradX_s + gradY_r*gradY_s);
+%             
+%             % Estimate second term using one point gaussian quadrature
+%             linear = triangle_area*(k0^2)*trial_r*trial_s;
+%             
+%             LHS = laplacian + linear;
+% 
+%             if is_r_on_sides == 0 && is_s_on_sides == 0
+% 
+%                  K(node_r,node_s) = K(node_r,node_s) + LHS;
+% 
+%                 if r ~= s
+%                     K(node_s,node_r) = K(node_s,node_r) + LHS;   
+%                 end
+% 
+%             elseif is_r_on_sides == 1 && is_s_on_sides == 0
+% 
+%                 K(node_s,node_r) = K(node_s,node_r) + LHS;              
+% 
+%             elseif is_r_on_sides == 0 && is_s_on_sides == 1
+% 
+%                 K(node_r,node_s) = K(node_r,node_s) + LHS;
+% 
+%             end
+%         end
+%     end
+    
+    % Port BC contribution to K
+    
+    % Exit BC contribution to K
+    
+    % Side BC contribution to K
+    for j = 1:length(wall_edge_nodes)
+        BC_current_node = wall_edge_nodes(j);
+        K(BC_current_node,BC_current_node) = 1;
     end
 
     % CONSTRUCT F CONTRIBUTION WITH PORT AND ABSORBING BC
@@ -145,9 +172,6 @@ for i = 1:num_triangles
     for r = 1:3
         node_rF = current_nodes(1,r);
         
-%         is_rF_on_boundary = sum(wall_edge_nodes == node_rF) + ...
-%             sum(exit_edge_nodes == node_rF) + ...
-%             sum(port_edge_nodes == node_rF);
         is_rF_on_exit_boundary = sum(exit_edge_nodes == node_rF);
         is_rF_on_port_boundary = sum(port_edge_nodes == node_rF);
 
@@ -162,11 +186,6 @@ for i = 1:num_triangles
                 
                 F(node_rF,1) = F(node_rF,1) + increment;             
 
-                % First-order - OLD INCORRECT INTEGRALS
-                %K(node_rF,node_rF) = K(node_rF,node_rF) - triangle_area*1i*k0*trial_rF; 
-                % Second-order - OLD
-                %K(node_rF,node_rF) = K(node_rF,node_rF) - triangle_area*1i*k0*(1-0.5*(pi*m/width)^2/k0^2)*trial_rF;
-                
                 % INTEGRATIONS ARE PERFORMED USING THE COMPOSITE SIMPSON'S
                 % RULE
                 
@@ -203,7 +222,8 @@ for i = 1:num_triangles
                 end
                 
                 K(node_rF,node_rF) = K(node_rF,node_rF) - (b_minus_a/6)*1i*sqrt(k0^2 - (pi*m/width)^2)*(trial_a + 4*trial_half + trial_b);
-                %K(node_rF,node_rF) = K(node_rF,node_rF) - (b_minus_a/6)*1i*sqrt(k0^2 - (pi*m/width)^2)*(1-0.5*(pi*m/width)^2/sqrt(k0^2 - (pi*m/width)^2)^2)*(trial_a + 4*trial_half + trial_b);
+                %K(node_rF,node_rF) = K(node_rF,node_rF) - (b_minus_a/6)*1i*sqrt(k0^2 - (pi*m/width)^2)*(1-0.5*(pi*m/width)^2/sqrt(k0^2 - (pi*m/width)^2)^2)*(trial_a + 4*trial_half + trial_b);                
+                
             end
 
             if is_rF_on_port_boundary == 1 % PORT BOUNDARY CONDITION 
@@ -256,22 +276,18 @@ for i = 1:num_triangles
 
                 K(node_rF,node_rF) = K(node_rF,node_rF) - (b_minus_a/6)*1i*sqrt(k0^2 - (pi*m/width)^2)*(trial_a + 4*trial_half + trial_b);
                 
-                % OLD
-%                 F(node_rF,1) = F(node_rF,1) + increment - triangle_area*2*1i*k0*init_E*sin(pi*m*centroid_y/width)*exp(1i*k0*centroid_x);
-% 
-%                 K(node_rF,node_rF) = K(node_rF,node_rF) - triangle_area*1i*k0*trial_rF;
             end
         
         else
-            F(node_rF,1) = F(node_rF,1) + increment;
+            continue
+            %F(node_rF,1) = F(node_rF,1) + increment;
         end
     end
     
-    % Add side PEC boundary conditions
+    % Side PEC boundary condition contribution to F
 
     for j = 1:length(wall_edge_nodes)
         BC_current_node = wall_edge_nodes(j);
-        K(BC_current_node,BC_current_node) = 1;
         F(BC_current_node,1) = 0;
     end
 
@@ -405,20 +421,20 @@ if slice_real == 1
     xy = [linspace(0,len,num_pts)', ones(num_pts,1).*(location)];
     z = griddata(node_list(:,1),node_list(:,2),real(U),xy(:,1),xy(:,2),method);
     figure
-%     plot(xy(:,1),z,'-*');
-%     xlabel('Z')
-%     ylabel('Real(E)')
+    plot(xy(:,1),z,'-*');
+    xlabel('Z')
+    ylabel('Real(E)')
     
     analytic_real = init_E*sin(pi/width*(width/2))*cos(-sqrt(k0^2 - (pi/width)^2)*xy(:,1));
-%     hold on
-%     plot(xy(:,1),analytic_real,'-*')
-%     hold off
-%     legend('MATLAB','analytic')
+    hold on
+    plot(xy(:,1),analytic_real,'-*')
+    hold off
+    legend('MATLAB','analytic')
     
-    abs_err_real = abs(z - analytic_real);
-    plot(xy(:,1),abs_err_real,'-*')
-    xlabel('Z')
-    ylabel('Abs. Error, Real')
+%     abs_err_real = abs(z - analytic_real);
+%     plot(xy(:,1),abs_err_real,'-*')
+%     xlabel('Z')
+%     ylabel('Abs. Error, Real')
     
 end
 
@@ -430,20 +446,20 @@ if slice_imag == 1
     xy = [linspace(0,len,num_pts)', ones(num_pts,1).*(location)];
     z = griddata(node_list(:,1),node_list(:,2),imag(U),xy(:,1),xy(:,2),method);
     figure
-%     plot(xy(:,1),z,'-*');
-%     xlabel('Z')
-%     ylabel('Imag(E)')
+    plot(xy(:,1),z,'-*');
+    xlabel('Z')
+    ylabel('Imag(E)')
     
     analytic_imag = init_E*sin(pi/width*(width/2))*sin(-sqrt(k0^2 - (pi/width)^2)*xy(:,1));
-%     hold on
-%     plot(xy(:,1),analytic_imag,'-*')
-%     hold off
-%     legend('MATLAB','analytic')
+    hold on
+    plot(xy(:,1),analytic_imag,'-*')
+    hold off
+    legend('MATLAB','analytic')
 
-    abs_err_imag = abs(z - analytic_imag);
-    plot(xy(:,1),abs_err_imag,'-*')
-    xlabel('Z')
-    ylabel('Abs. Error, Imaginary')
+%     abs_err_imag = abs(z - analytic_imag);
+%     plot(xy(:,1),abs_err_imag,'-*')
+%     xlabel('Z')
+%     ylabel('Abs. Error, Imaginary')
 end
 
 % FFT analysis and plotting
