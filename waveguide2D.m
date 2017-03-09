@@ -86,20 +86,13 @@ F = zeros(num_nodes,1);
 for i = 1:num_triangles
     
     current_nodes = triangle_list(i,:);
+    current_coords = [node_list(current_nodes(1,1),:);...
+                      node_list(current_nodes(1,2),:);...
+                      node_list(current_nodes(1,3),:);];
     
-    % FOR LINEAR LAGRANGE BASIS FUNCTIONS (\phi = a + bx + cy)
-    triangle_coord_matrix = [1, node_list(current_nodes(1,1),:);...
-                             1, node_list(current_nodes(1,2),:);...
-                             1, node_list(current_nodes(1,3),:);];
-                         
-    linear_basis_coefficients = inv(triangle_coord_matrix);
-    triangle_area = abs(det(triangle_coord_matrix))/2;
-    
-    centroid_x = (1/3)*(node_list(current_nodes(1,1),1) + ...
-        node_list(current_nodes(1,2),1) + node_list(current_nodes(1,3),1));
-    
-    centroid_y = (1/3)*(node_list(current_nodes(1,1),2) + ...
-        node_list(current_nodes(1,2),2) + node_list(current_nodes(1,3),2));
+    [triangle_area,centroid] = elementdata(current_coords);
+    centroid_x = centroid(1,1);
+    centroid_y = centroid(1,2);
         
     % CONSTRUCT K CONTRIBUTION FOR CURRENT TRIANGLE WITHOUT BOUNDARY 
     % CONDITIONS
@@ -115,22 +108,14 @@ for i = 1:num_triangles
             is_s_on_sides = sum(wall_edge_nodes == node_s);
             is_s_on_exit = sum(exit_edge_nodes == node_s);
 
-            % Determine gradients in XY from coefficients of basis fxn
-            const_r = linear_basis_coefficients(1,r);
-            gradX_r = linear_basis_coefficients(2,r);
-            gradY_r = linear_basis_coefficients(3,r);
+            % Determine gradients in XY from coefficients of basis fxn            
+            [trial_r,gradX_r,gradY_r] = basis(current_coords,r,centroid);
+            [trial_s,gradX_s,gradY_s] = basis(current_coords,s,centroid);
             
-            const_s = linear_basis_coefficients(1,s);
-            gradX_s = linear_basis_coefficients(2,s);
-            gradY_s = linear_basis_coefficients(3,s);
-
             % Estimate first term using one point gaussian quadrature
             laplacian = -triangle_area*(gradX_r*gradX_s + gradY_r*gradY_s);
             
             % Estimate second term using one point gaussian quadrature
-            trial_r = const_r + gradX_r*centroid_x + gradY_r*centroid_y;
-            trial_s = const_s + gradX_s*centroid_x + gradY_s*centroid_y;
-            
             linear = triangle_area*(k0^2)*trial_r*trial_s;
             
             LHS = laplacian + linear;
@@ -166,9 +151,7 @@ for i = 1:num_triangles
         is_rF_on_exit_boundary = sum(exit_edge_nodes == node_rF);
         is_rF_on_port_boundary = sum(port_edge_nodes == node_rF);
 
-        trial_rF = linear_basis_coefficients(1,r)+...
-                linear_basis_coefficients(2,r)*centroid_x + ...
-                linear_basis_coefficients(3,r)*centroid_y;
+        trial_rF = basis(current_coords,r,centroid);
             
         % Estimate integral using one point gaussian quadrature 
         increment = triangle_area*source*trial_rF;
@@ -197,27 +180,16 @@ for i = 1:num_triangles
                     % Calculate values for integration based on relative
                     % node positions
                     if node_list(node_rF,2) > node_list(node2,2)
-                        trial_a = linear_basis_coefficients(1,r)+...
-                                linear_basis_coefficients(2,r)*node_list(node2,1) + ...
-                                linear_basis_coefficients(3,r)*node_list(node2,2);
-                        trial_half = linear_basis_coefficients(1,r)+...
-                                linear_basis_coefficients(2,r)*node_list(node2,1) + ...
-                                linear_basis_coefficients(3,r)*halfway_y;
-                        trial_b = linear_basis_coefficients(1,r)+...
-                                linear_basis_coefficients(2,r)*node_list(node_rF,1) + ...
-                                linear_basis_coefficients(3,r)*node_list(node_rF,2);  
+                        trial_a = basis(current_coords,r,node_list(node2,:));
+                        trial_half = basis(current_coords,r,[node_list(node2,1),halfway_y]);
+                        trial_b = basis(current_coords,r,node_list(node_rF,:)); 
                             
                         b_minus_a = node_list(node_rF,2) - node_list(node2,2);
                     else
-                        trial_a = linear_basis_coefficients(1,r)+...
-                                linear_basis_coefficients(2,r)*node_list(node_rF,1) + ...
-                                linear_basis_coefficients(3,r)*node_list(node_rF,2);
-                        trial_half = linear_basis_coefficients(1,r)+...
-                                linear_basis_coefficients(2,r)*node_list(node_rF,1) + ...
-                                linear_basis_coefficients(3,r)*halfway_y;
-                        trial_b = linear_basis_coefficients(1,r)+...
-                                linear_basis_coefficients(2,r)*node_list(node2,1) + ...
-                                linear_basis_coefficients(3,r)*node_list(node2,2);     
+                        
+                        trial_a = basis(current_coords,r,node_list(node_rF,:));
+                        trial_half = basis(current_coords,r,[node_list(node_rF,1),halfway_y]);
+                        trial_b = basis(current_coords,r,node_list(node2,:));   
                             
                         b_minus_a = node_list(node2,2) - node_list(node_rF,2);
                     end
@@ -249,15 +221,9 @@ for i = 1:num_triangles
                     % Calculate values for integration based on relative
                     % node positions
                     if node_list(node_rF,2) > node_list(node2,2)
-                        trial_a = linear_basis_coefficients(1,r)+...
-                                linear_basis_coefficients(2,r)*node_list(node2,1) + ...
-                                linear_basis_coefficients(3,r)*node_list(node2,2);
-                        trial_half = linear_basis_coefficients(1,r)+...
-                                linear_basis_coefficients(2,r)*node_list(node2,1) + ...
-                                linear_basis_coefficients(3,r)*halfway_y;
-                        trial_b = linear_basis_coefficients(1,r)+...
-                                linear_basis_coefficients(2,r)*node_list(node_rF,1) + ...
-                                linear_basis_coefficients(3,r)*node_list(node_rF,2);
+                        trial_a = basis(current_coords,r,node_list(node2,:));
+                        trial_half = basis(current_coords,r,[node_list(node2,1),halfway_y]);
+                        trial_b = basis(current_coords,r,node_list(node_rF,:));                        
 
                         inc_a = sin(pi*m*node_list(node2,2)/width)*exp(1i*sqrt(k0^2 - (pi*m/width)^2)*node_list(node2,1));
                         inc_half = sin(pi*m*halfway_y/width)*exp(1i*sqrt(k0^2 - (pi*m/width)^2)*node_list(node2,1));
@@ -265,15 +231,9 @@ for i = 1:num_triangles
                         
                         b_minus_a = node_list(node_rF,2) - node_list(node2,2);
                     else
-                        trial_a = linear_basis_coefficients(1,r)+...
-                                linear_basis_coefficients(2,r)*node_list(node_rF,1) + ...
-                                linear_basis_coefficients(3,r)*node_list(node_rF,2);
-                        trial_half = linear_basis_coefficients(1,r)+...
-                                linear_basis_coefficients(2,r)*node_list(node_rF,1) + ...
-                                linear_basis_coefficients(3,r)*halfway_y;
-                        trial_b = linear_basis_coefficients(1,r)+...
-                                linear_basis_coefficients(2,r)*node_list(node2,1) + ...
-                                linear_basis_coefficients(3,r)*node_list(node2,2);
+                        trial_a = basis(current_coords,r,node_list(node_rF,:));
+                        trial_half = basis(current_coords,r,[node_list(node_rF,1),halfway_y]);
+                        trial_b = basis(current_coords,r,node_list(node2,:));
 
                         inc_a = sin(pi*m*node_list(node_rF,2)/width)*exp(-1i*sqrt(k0^2 - (pi*m/width)^2)*node_list(node_rF,1));
                         inc_half = sin(pi*m*halfway_y/width)*exp(-1i*sqrt(k0^2 - (pi*m/width)^2)*node_list(node_rF,1));
