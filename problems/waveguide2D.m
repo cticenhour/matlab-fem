@@ -86,7 +86,7 @@ F = zeros(num_nodes,1);
 
 % Weak Form 
 % Term 1 - Laplacian (\nabla^2 \dot Field)
-K = buildKlaplacian(K,triangle_list,node_list,wall_edge_nodes);
+K = buildKlaplacian(K,triangle_list,node_list,wall_edge_nodes,-1);
 % Term 2 - Coefficient * Field
 K = buildKcoeff(K,triangle_list,node_list,wall_edge_nodes,k0);
 % Right hand source term
