@@ -10,17 +10,6 @@
 % OUTPUTS:
 % K = updated system matrix
 
-% buildKinterior.m
-% Builds K components triangle-by-triangle for interior nodes only
-% REQUIRES:
-% K = system (KU=F) matrix
-% triangle_list = element connectivity information
-% node_list = node coordinates
-% wall_edge_nodes = nodes located on the walls
-% k = wave number for linear term
-% OUTPUTS:
-% K = updated system matrix
-
 function K = buildKcoeff(K,triangle_list,node_list,defined_edge_nodes,coefficient)
 
     for i = 1:size(triangle_list,1)

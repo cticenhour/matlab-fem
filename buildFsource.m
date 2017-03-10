@@ -1,4 +1,4 @@
-% buildFinterior.m
+% buildFsource.m
 % Builds F components triangle-by-triangle for interior nodes only
 % REQUIRES:
 % F = system (KU=F) right hand side vector
@@ -9,7 +9,7 @@
 % OUTPUTS:
 % F = updated system right hand side vector
 
-function F = buildFinterior(F,triangle_list,node_list,edge_nodes,source)
+function F = buildFsource(F,triangle_list,node_list,edge_nodes,source)
 
     for i = 1:size(triangle_list,1)
 
