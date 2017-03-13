@@ -12,10 +12,9 @@
 % K = updated system matrix
 % F = update right hand side vector
 
-function [K,F] = absorbingBC(K,F,triangle_list,node_list,exit_edges,exit_edge_nodes,k)
+function [K,F] = absorbingBC(K,F,triangle_list,node_list,exit_edges,exit_edge_nodes,k,waveguide_width)
 
     m = 1;
-    width = 10;
 
     for i = 1:size(triangle_list,1)
 
@@ -66,8 +65,8 @@ function [K,F] = absorbingBC(K,F,triangle_list,node_list,exit_edges,exit_edge_no
 
                 end
 
-                K(node_rF,node_rF) = K(node_rF,node_rF) - (b_minus_a/6)*1i*sqrt(k^2 - (pi*m/width)^2)*(trial_a + 4*trial_half + trial_b);
-                %K(node_rF,node_rF) = K(node_rF,node_rF) - (b_minus_a/6)*1i*sqrt(k^2 - (pi*m/width)^2)*(1-0.5*(pi*m/width)^2/sqrt(k^2 - (pi*m/width)^2)^2)*(trial_a + 4*trial_half + trial_b);                
+                K(node_rF,node_rF) = K(node_rF,node_rF) - (b_minus_a/6)*1i*sqrt(k^2 - (pi*m/waveguide_width)^2)*(trial_a + 4*trial_half + trial_b);
+                %K(node_rF,node_rF) = K(node_rF,node_rF) - (b_minus_a/6)*1i*sqrt(k^2 - (pi*m/waveguide_width)^2)*(1-0.5*(pi*m/waveguide_width)^2/sqrt(k^2 - (pi*m/waveguide_width)^2)^2)*(trial_a + 4*trial_half + trial_b);                
 
             end
         end   

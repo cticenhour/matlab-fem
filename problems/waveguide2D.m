@@ -28,8 +28,8 @@ fft = 0;
 % IMPORTANT CONSTANTS
 %=============================
 
-width = 10;
-len = 80;
+waveguide_width = 10;
+waveguide_length = 80;
 
 m = 1;
 
@@ -43,13 +43,11 @@ eps0 = 8.854e-12; % F/m
 
 c = 3e8;
 
-Z0 = mu0*c;
-
 k0 = omega/c;
 
 k = k0*(1+1i*0);
 
-beta = sqrt(k^2 - (pi/width)^2);
+beta = sqrt(k^2 - (pi/waveguide_width)^2);
 
 source = 0;
 
@@ -94,9 +92,9 @@ F = buildFsource(F,triangle_list,node_list,wall_edge_nodes,source);
 
 % Boundary Conditions
 % Port BC at z = 0
-[K,F] = portBC(K,F,triangle_list,node_list,port_edges, port_edge_nodes,k0);
+[K,F] = portBC(K,F,triangle_list,node_list,port_edges, port_edge_nodes,k0,waveguide_width);
 % Absorbing BC at z = 80
-[K,F] = absorbingBC(K,F,triangle_list,node_list,exit_edges,exit_edge_nodes,k0);
+[K,F] = absorbingBC(K,F,triangle_list,node_list,exit_edges,exit_edge_nodes,k0,waveguide_width);
 % PEC (E = 0) condition on walls
 [K,F] = pecBC(K,F,wall_edge_nodes);
 
@@ -108,22 +106,22 @@ U = K\F;
 %============================
 
 % Initial signal to use for analysis
-E_initial = init_E.*sin(pi*m*node_list(:,2)/width).*exp(-1i*sqrt(k0^2 - (pi*m/width)^2)*node_list(:,1));
+E_initial = init_E.*sin(pi*m*node_list(:,2)/waveguide_width).*exp(-1i*sqrt(k0^2 - (pi*m/waveguide_width)^2)*node_list(:,1));
 
 % Calculate phase of wave to test for propagation (sawtooth = good!)
 phase = atan2(imag(U),real(U));
 
 % Calculate code solution "in time" and analytic time solution
 rF_cycles = 20;
-[E_time,E_analytic_time] = timeAnalysis(U,node_list,omega,beta,width,init_E,rF_cycles);
+[E_time,E_analytic_time] = timeAnalysis(U,node_list,omega,beta,waveguide_width,init_E,rF_cycles);
 
 num_pts = 200;
 num_sweeps = 1;
 windowed = 0;
 % FFT analysis of solution
-[k_axis,spectrum,k_parallel,R,k_calc,angle,R_theory_first, R_theory_second,power] = FFTanalysis(k0,node_list,U,len,width,num_pts,'natural',windowed);
+[k_axis,spectrum,R,R_theory,k_calc,power] = FFTanalysis(node_list,U,waveguide_length,waveguide_width,num_pts,'natural',windowed);
 % FFT analysis of initial signal
-[k_vec_init,k_spectrum_init] = FFTanalysis(k0,node_list,E_initial,len,width,num_pts,'natural',windowed);
+[k_vec_init,spectrum_init] = FFTanalysis(node_list,E_initial,waveguide_length,waveguide_width,num_pts,'natural',windowed);
 
 %============================
 %       PLOTTING
@@ -134,35 +132,35 @@ if surface_plots == 1
     figure
     subplot(3,1,1)
     trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),abs(U),...
-        'edgecolor','k','facecolor','interp');
+        'edgecolor','none','facecolor','interp');
     view(2)
     axis image
     colorbar
     title('Magnitude of E_z')
-    xlabel('Z')
-    ylabel('Y')
+    xlabel('Z (m)')
+    ylabel('Y (m)')
 
     % solution real component
     subplot(3,1,2)
     trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),real(U),...
-        'edgecolor','k','facecolor','interp');
+        'edgecolor','none','facecolor','interp');
     view(2)
     axis image
     colorbar
     title('Real part of E_z')
-    xlabel('Z')
-    ylabel('Y')
+    xlabel('Z (m)')
+    ylabel('Y (m)')
 
     % solution imaginary component
     subplot(3,1,3)
     trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),imag(U),...
-        'edgecolor','k','facecolor','interp');
+        'edgecolor','none','facecolor','interp');
     view(2)
     axis image
     colorbar
     title('Imaginary part of E_z')
-    xlabel('Z')
-    ylabel('Y')
+    xlabel('Z (m)')
+    ylabel('Y (m)')
 end
 
 % Plot phase calculation for solution
@@ -215,16 +213,16 @@ end
 % Plot slice from a real trisurf plot at the center of the waveguide (y = width/2)
 if slice_real == 1
     num_pts = 200;
-    location = width/2;
+    location = waveguide_width/2;
     method = 'natural';
-    xy = [linspace(0,len,num_pts)', ones(num_pts,1).*(location)];
+    xy = [linspace(0,waveguide_length,num_pts)', ones(num_pts,1).*(location)];
     z = griddata(node_list(:,1),node_list(:,2),real(U),xy(:,1),xy(:,2),method);
     figure
     plot(xy(:,1),z,'-*');
     xlabel('Z')
     ylabel('Real(E)')
     
-    analytic_real = init_E*sin(pi/width*(width/2))*cos(-sqrt(k0^2 - (pi/width)^2)*xy(:,1));
+    analytic_real = init_E*sin(pi/waveguide_width*(waveguide_width/2))*cos(-sqrt(k0^2 - (pi/waveguide_width)^2)*xy(:,1));
     hold on
     plot(xy(:,1),analytic_real,'-*')
     hold off
@@ -240,16 +238,16 @@ end
 % Plot slice from an imag trisurf plot at the center of the waveguide (y = width/2)
 if slice_imag == 1
     num_pts = 200;
-    location = width/2;
+    location = waveguide_width/2;
     method = 'natural';
-    xy = [linspace(0,len,num_pts)', ones(num_pts,1).*(location)];
+    xy = [linspace(0,waveguide_length,num_pts)', ones(num_pts,1).*(location)];
     z = griddata(node_list(:,1),node_list(:,2),imag(U),xy(:,1),xy(:,2),method);
     figure
     plot(xy(:,1),z,'-*');
     xlabel('Z')
     ylabel('Imag(E)')
     
-    analytic_imag = init_E*sin(pi/width*(width/2))*sin(-sqrt(k0^2 - (pi/width)^2)*xy(:,1));
+    analytic_imag = init_E*sin(pi/waveguide_width*(waveguide_width/2))*sin(-sqrt(k0^2 - (pi/waveguide_width)^2)*xy(:,1));
     hold on
     plot(xy(:,1),analytic_imag,'-*')
     hold off
@@ -261,23 +259,15 @@ if slice_imag == 1
 %     ylabel('Abs. Error, Imaginary')
 end
 
-% FFT analysis and plotting
+% FFT plotting
 if fft == 1
-    num_pts = 200;
-    num_sweeps = 1;
-    windowed = 0;
-    % FFT analysis of solution
-    [k_axis,spectrum,k_parallel,R,k_calc,angle,R_theory_first, R_theory_second,power] = FFTanalysis(k0,node_list,U,len,width,num_pts,'natural',windowed);
-    % FFT analysis of initial signal
-    [k_vec_init,k_spectrum_init] = FFTanalysis(k0,node_list,E_initial,len,width,num_pts,'natural',windowed);
-    
     figure
     plot(k_axis,spectrum)
     title('FFT of E_z')
     xlabel('k (m^{-1})')
     ylabel('|fft(E_z)|')
     figure
-    plot(k_vec_init,k_spectrum_init)
+    plot(k_vec_init,spectrum_init)
     title('FFT of E_z^{inc}')
     xlabel('k (m^{-1})')
     ylabel('|fft(E_z^{inc})|')
@@ -293,9 +283,9 @@ if MOOSE_comparison == 1
 %     ylabel('Y')
     
     num_pts = 200;
-    location = width/2;
+    location = waveguide_width/2;
     method = 'natural';
-    xy = [linspace(0,len,num_pts)', ones(num_pts,1).*(location)];
+    xy = [linspace(0,waveguide_length,num_pts)', ones(num_pts,1).*(location)];
     z = griddata(node_list(:,1),node_list(:,2),U_MOOSE_Re,xy(:,1),xy(:,2),method);
     figure(1)
     hold on
@@ -303,7 +293,7 @@ if MOOSE_comparison == 1
     hold off
     legend('MATLAB', 'analytic', 'MOOSE')
     
-    xy = [linspace(0,len,num_pts)', ones(num_pts,1).*(location)];
+    xy = [linspace(0,waveguide_length,num_pts)', ones(num_pts,1).*(location)];
     z = griddata(node_list(:,1),node_list(:,2),U_MOOSE_Im,xy(:,1),xy(:,2),method);
     figure(2)
     hold on
