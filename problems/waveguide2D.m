@@ -17,7 +17,7 @@ MOOSE_comparison = 0;   % requires output data CSV file from MOOSE
 
 % Plotting switches
 surface_plots = 1;
-phase_E = 0;
+phase_E = 1;
 time_E = 0;
 analytic_time_E = 0;
 slice_real = 0;
@@ -83,8 +83,8 @@ K = zeros(num_nodes,num_nodes);
 F = zeros(num_nodes,1);
 
 % Weak Form 
-% Term 1 - Laplacian (\nabla^2 \dot Field)
-K = buildKlaplacian(K,triangle_list,node_list,wall_edge_nodes,-1);
+% Term 1 - Laplacian (E_xx + E_yy)
+K = buildKlaplacian(K,triangle_list,node_list,wall_edge_nodes);
 % Term 2 - Coefficient * Field
 K = buildKcoeff(K,triangle_list,node_list,wall_edge_nodes,k0);
 % Right hand source term

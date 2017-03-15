@@ -1,17 +1,16 @@
 % buildKlaplacian.m
 % Builds K components for weak form of laplacian with coefficient for nodes that are free
-%  Regular form: Coeff * (-U_xx - U_yy)
+%  Regular form: (U_xx + U_yy)
 % REQUIRES:
 % K = system (KU=F) matrix
 % triangle_list = element connectivity information
 % node_list = node coordinates
 % defined_edge_nodes = nodes which are not free (defined directly by some
 %                       BC)
-% coeff = coefficient for laplacian
 % OUTPUTS:
 % K = updated system matrix
 
-function K = buildKlaplacian(K,triangle_list,node_list,defined_edge_nodes,coeff)
+function K = buildKlaplacian(K,triangle_list,node_list,defined_edge_nodes)
 
     for i = 1:size(triangle_list,1)
 
@@ -36,7 +35,7 @@ function K = buildKlaplacian(K,triangle_list,node_list,defined_edge_nodes,coeff)
                 [~,gradX_s,gradY_s] = basis(current_coords,s,centroid);
 
                 % Estimate weak form term using one point gaussian quadrature
-                term = coeff*triangle_area*(gradX_r*gradX_s + gradY_r*gradY_s);
+                term = -triangle_area*(gradX_r*gradX_s + gradY_r*gradY_s);
 
                 if is_r_defined == 0 && is_s_defined == 0
 
