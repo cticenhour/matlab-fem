@@ -30,12 +30,12 @@ function K = buildKlaplacian(K,triangle_list,node_list,defined_edge_nodes)
                 is_r_defined = sum(defined_edge_nodes == node_r);
                 is_s_defined = sum(defined_edge_nodes == node_s);
 
-                % Determine gradients in XY from coefficients of basis fxn            
-                [~,gradX_r,gradY_r] = basis(current_coords,r,centroid);
-                [~,gradX_s,gradY_s] = basis(current_coords,s,centroid);
+                % Determine gradients in ZY from coefficients of basis fxn            
+                [~,gradZ_r,gradY_r] = basis(current_coords,r,centroid);
+                [~,gradZ_s,gradY_s] = basis(current_coords,s,centroid);
 
                 % Estimate weak form term using one point gaussian quadrature
-                term = -triangle_area*(gradX_r*gradX_s + gradY_r*gradY_s);
+                term = -triangle_area*(gradZ_r*gradZ_s + gradY_r*gradY_s);
 
                 if is_r_defined == 0 && is_s_defined == 0
 
