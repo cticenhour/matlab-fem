@@ -11,17 +11,18 @@
 % SWITCHES AND PLOTTING OPTIONS
 %=============================
     
-filename = 'waveguide.msh';
+filename = 'waveguide_moose.msh';
 
-MOOSE_comparison = 0;   % requires output data CSV file from MOOSE
+MOOSE_comparison = 1;   % requires output data CSV file from MOOSE
+                        % requires slice_real = slice_imag = 1
 
 % Plotting switches
-surface_plots = 1;
-phase_E = 1;
+surface_plots = 0;
+phase_E = 0;
 time_E = 0;
 analytic_time_E = 0;
-slice_real = 0;
-slice_imag = 0;
+slice_real = 1;
+slice_imag = 1;
 fft = 0;
 
 %=============================
@@ -216,17 +217,20 @@ if slice_real == 1
     location = waveguide_width/2;
     method = 'natural';
     xy = [linspace(0,waveguide_length,num_pts)', ones(num_pts,1).*(location)];
-    z = griddata(node_list(:,1),node_list(:,2),real(U),xy(:,1),xy(:,2),method);
-    figure
-    plot(xy(:,1),z,'-*');
-    xlabel('Z')
-    ylabel('Real(E)')
-    
+    real_slice = griddata(node_list(:,1),node_list(:,2),real(U),xy(:,1),xy(:,2),method);
     analytic_real = init_E*sin(pi/waveguide_width*(waveguide_width/2))*cos(-sqrt(k0^2 - (pi/waveguide_width)^2)*xy(:,1));
-    hold on
-    plot(xy(:,1),analytic_real,'-*')
-    hold off
-    legend('MATLAB','analytic')
+    
+    if MOOSE_comparison == 0
+        figure
+        plot(xy(:,1),real_slice,'-*');
+        xlabel('Z')
+        ylabel('Real(E)')
+
+        hold on
+        plot(xy(:,1),analytic_real,'-*')
+        hold off
+        legend('MATLAB','analytic')
+    end
     
 %     abs_err_real = abs(z - analytic_real);
 %     plot(xy(:,1),abs_err_real,'-*')
@@ -241,17 +245,20 @@ if slice_imag == 1
     location = waveguide_width/2;
     method = 'natural';
     xy = [linspace(0,waveguide_length,num_pts)', ones(num_pts,1).*(location)];
-    z = griddata(node_list(:,1),node_list(:,2),imag(U),xy(:,1),xy(:,2),method);
-    figure
-    plot(xy(:,1),z,'-*');
-    xlabel('Z')
-    ylabel('Imag(E)')
-    
+    imag_slice = griddata(node_list(:,1),node_list(:,2),imag(U),xy(:,1),xy(:,2),method);
     analytic_imag = init_E*sin(pi/waveguide_width*(waveguide_width/2))*sin(-sqrt(k0^2 - (pi/waveguide_width)^2)*xy(:,1));
-    hold on
-    plot(xy(:,1),analytic_imag,'-*')
-    hold off
-    legend('MATLAB','analytic')
+    
+    if MOOSE_comparison == 0
+        figure
+        plot(xy(:,1),imag_slice,'-*');
+        xlabel('Z')
+        ylabel('Imag(E)')
+
+        hold on
+        plot(xy(:,1),analytic_imag,'-*')
+        hold off
+        legend('MATLAB','analytic')
+    end
 
 %     abs_err_imag = abs(z - analytic_imag);
 %     plot(xy(:,1),abs_err_imag,'-*')
@@ -262,12 +269,12 @@ end
 % FFT plotting
 if fft == 1
     figure
-    plot(k_axis,spectrum)
+    semilogx(k_axis,spectrum)
     title('FFT of E_z')
     xlabel('k (m^{-1})')
     ylabel('|fft(E_z)|')
     figure
-    plot(k_vec_init,spectrum_init)
+    semilogx(k_vec_init,spectrum_init)
     title('FFT of E_z^{inc}')
     xlabel('k (m^{-1})')
     ylabel('|fft(E_z^{inc})|')
@@ -286,20 +293,56 @@ if MOOSE_comparison == 1
     location = waveguide_width/2;
     method = 'natural';
     xy = [linspace(0,waveguide_length,num_pts)', ones(num_pts,1).*(location)];
-    z = griddata(node_list(:,1),node_list(:,2),U_MOOSE_Re,xy(:,1),xy(:,2),method);
-    figure(1)
-    hold on
-    plot(xy(:,1),z,'-*');
-    hold off
-    legend('MATLAB', 'analytic', 'MOOSE')
+    moose_real = griddata(node_list(:,1),node_list(:,2),U_MOOSE_Re,xy(:,1),xy(:,2),method);
     
-    xy = [linspace(0,waveguide_length,num_pts)', ones(num_pts,1).*(location)];
-    z = griddata(node_list(:,1),node_list(:,2),U_MOOSE_Im,xy(:,1),xy(:,2),method);
-    figure(2)
+    moose_imag = griddata(node_list(:,1),node_list(:,2),U_MOOSE_Im,xy(:,1),xy(:,2),method);
+    
+    
+    figure
+    subplot(2,1,1)
     hold on
-    plot(xy(:,1),z,'-*');
+    %plot(xy(:,1),real_slice,'-*');
+    plot(xy(:,1),analytic_real,'-^');
+    plot(xy(:,1),moose_real,'-om');
     hold off
-    legend('MATLAB', 'analytic', 'MOOSE')
+    xlabel('Z (m)')
+    ylabel('E Field - Real (V/m)')
+    
+    subplot(2,1,2)
+    hold on
+    %plot(xy(:,1),imag_slice,'-*');
+    plot(xy(:,1),analytic_imag,'-^');
+    plot(xy(:,1),moose_imag,'-om');
+    hold off
+    %legend('MATLAB', 'analytic', 'MOOSE')
+    legend('analytic', 'MOOSE')
+    xlabel('Z (m)')
+    ylabel('E Field - Imag. (V/m)')
+    
+    figure
+    % solution real component surface plot
+    subplot(2,1,1)
+    trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),U_MOOSE_Re,...
+        'edgecolor','none','facecolor','interp');
+    view(2)
+    axis image
+    caxis([-1 1])
+    colorbar
+    title('Real part of E_z')
+    xlabel('Z (m)')
+    ylabel('Y (m)')
+
+    % solution imaginary component surface plot
+    subplot(2,1,2)
+    trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),U_MOOSE_Im,...
+        'edgecolor','none','facecolor','interp');
+    view(2)
+    axis image
+    caxis([-1 1])
+    colorbar
+    title('Imaginary part of E_z')
+    xlabel('Z (m)')
+    ylabel('Y (m)')
     
     %RMS_MOOSE_error = sqrt(sum((U_MOOSE - U).^2)/length(U))
 end
