@@ -11,7 +11,7 @@
 % SWITCHES AND PLOTTING OPTIONS
 %=============================
     
-filename = 'waveguide_moose.msh';
+filename = 'waveguide.msh';
 
 MOOSE_comparison = 0;   % requires output data CSV file from MOOSE
                         % requires slice_real = slice_imag = 1
@@ -36,17 +36,27 @@ m = 1;
 
 init_E = 1;
 
-omega = 2*pi*20e6;
+omega = 2*pi*20e6; % rad / sec
 
 mu0 = 4*pi*1e-7;
 
+elem_charge = 1.6022e-19; % Coulomb
+
+m_e = 9.1095e-31; % kg
+
 eps0 = 8.854e-12; % F/m
+
+n_e = 1e11; % cm^-3
+
+omega_p = sqrt(n_e * elem_charge/ (eps0 * m_e));
+
+eps_r = 1 - (omega_p^2 / omega^2);
 
 c = 3e8;
 
 k0 = omega/c;
 
-k = k0*(1+1i*0);
+k = k0*sqrt(eps_r);
 
 beta = sqrt(k^2 - (pi/waveguide_width)^2);
 
@@ -94,13 +104,13 @@ F = buildFsource(F,triangle_list,node_list,nonfree_edge_nodes,source);
 
 % Boundary Conditions
 % Port BC at z = 0
-[K,F] = portBC(K,F,triangle_list,node_list,port_edges, port_edge_nodes,k0,waveguide_width);
+%[K,F] = portBC(K,F,triangle_list,node_list,port_edges, port_edge_nodes,k0,waveguide_width);
 % Constant BC at z = 0
-%[K,F] = constantBC(K,F,port_edge_nodes,1);
+[K,F] = constantBC(K,F,triangle_list,node_list,port_edges, port_edge_nodes,k0,waveguide_width,1);
 % Absorbing BC at z = 80
 [K,F] = absorbingBC(K,F,triangle_list,node_list,exit_edges,exit_edge_nodes,k0,waveguide_width);
 % PEC (E = 0) condition on walls
-%[K,F] = pecBC(K,F,wall_edge_nodes);
+%[K,F] = pecBC(K,F,nonfree_edge_nodes);
 % periodic condition on top and bottom
 [K,F] = periodicBC(K,F,node_list,top_edge_nodes, bottom_edge_nodes,[0 -waveguide_width]);
 
@@ -138,7 +148,7 @@ if surface_plots == 1
     figure
     subplot(3,1,1)
     trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),abs(U),...
-        'edgecolor','k','facecolor','interp');
+        'edgecolor','none','facecolor','interp');
     view(2)
     axis image
     colorbar
@@ -274,12 +284,12 @@ end
 % FFT plotting
 if fft == 1
     figure
-    semilogx(k_axis,spectrum)
+    plot(k_axis,spectrum)
     title('FFT of E_z')
     xlabel('k (m^{-1})')
     ylabel('|fft(E_z)|')
     figure
-    semilogx(k_vec_init,spectrum_init)
+    plot(k_vec_init,spectrum_init)
     title('FFT of E_z^{inc}')
     xlabel('k (m^{-1})')
     ylabel('|fft(E_z^{inc})|')

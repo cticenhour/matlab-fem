@@ -13,16 +13,16 @@
     
 filename = 'waveguide_moose.msh';
 
-MOOSE_comparison = 1;   % requires output data CSV file from MOOSE
+MOOSE_comparison = 0;   % requires output data CSV file from MOOSE
                         % requires slice_real = slice_imag = 1
 
 % Plotting switches
-surface_plots = 0;
+surface_plots = 1;
 phase_E = 0;
 time_E = 0;
 analytic_time_E = 0;
-slice_real = 1;
-slice_imag = 1;
+slice_real = 0;
+slice_imag = 0;
 fft = 0;
 
 %=============================
@@ -301,7 +301,7 @@ if MOOSE_comparison == 1
     figure
     subplot(2,1,1)
     hold on
-    %plot(xy(:,1),real_slice,'-*');
+    plot(xy(:,1),real_slice,'-*');
     plot(xy(:,1),analytic_real,'-^');
     plot(xy(:,1),moose_real,'-om');
     hold off
@@ -310,12 +310,12 @@ if MOOSE_comparison == 1
     
     subplot(2,1,2)
     hold on
-    %plot(xy(:,1),imag_slice,'-*');
+    plot(xy(:,1),imag_slice,'-*');
     plot(xy(:,1),analytic_imag,'-^');
     plot(xy(:,1),moose_imag,'-om');
     hold off
-    %legend('MATLAB', 'analytic', 'MOOSE')
-    legend('analytic', 'MOOSE')
+    axis
+    legend('MATLAB', 'analytic', 'MOOSE')
     xlabel('Z (m)')
     ylabel('E Field - Imag. (V/m)')
     
