@@ -11,7 +11,7 @@
 % SWITCHES AND PLOTTING OPTIONS
 %=============================
     
-filename = 'waveguide_moose.msh';
+filename = '/home/cticenhour/projects/EELS/meshes/waveguide.msh';
 
 MOOSE_comparison = 0;   % requires output data CSV file from MOOSE
                         % requires slice_real = slice_imag = 1
