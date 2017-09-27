@@ -8,11 +8,13 @@
 % port_edges = edges along which portBC is defined
 % port_edge_nodes = nodes where port BC is defined
 % k = wave number
+% waveguide_width = width of the waveguide
+% dim = dimension of the field (0,1,2)
 % OUTPUTS
 % K = updated system matrix
 % F = update right hand side vector
 
-function [K,F] = portBC(K,F,triangle_list,node_list,port_edges,port_edge_nodes,k,waveguide_width)
+function [K,F] = portBC(K,F,triangle_list,node_list,port_edges,port_edge_nodes,k,waveguide_width,dim)
     
     m = 1;
 
@@ -46,21 +48,49 @@ function [K,F] = portBC(K,F,triangle_list,node_list,port_edges,port_edge_nodes,k
                         trial_a = basis(current_coords,r,node_list(node2,:));
                         trial_half = basis(current_coords,r,[node_list(node2,1),halfway_y]);
                         trial_b = basis(current_coords,r,node_list(node_rF,:));                        
-
-                        inc_a = sin(pi*m*node_list(node2,2)/waveguide_width)*exp(-1i*sqrt(k^2 - (pi*m/waveguide_width)^2)*node_list(node2,1));
-                        inc_half = sin(pi*m*halfway_y/waveguide_width)*exp(-1i*sqrt(k^2 - (pi*m/waveguide_width)^2)*node_list(node2,1));
-                        inc_b = sin(pi*m*node_list(node_rF,2)/waveguide_width)*exp(-1i*sqrt(k^2 - (pi*m/waveguide_width)^2)*node_list(node_rF,1));
-
+                        
+                        if dim == 0
+                            error('you idiot, I haven''t done this yet.....')
+                        elseif dim == 1
+                            
+                            const =  sqrt(k^2 - (pi*m/waveguide_width)^2)/(pi*m/waveguide_width)^2;
+                            
+                            inc_a = -1i*const*(pi*m/waveguide_width)*cos(pi*m*node_list(node2,2)/waveguide_width)*exp(-1i*sqrt(k^2 - (pi*m/waveguide_width)^2)*node_list(node2,1));
+                            inc_half = -1i*const*cos(pi*m*halfway_y/waveguide_width)*exp(-1i*sqrt(k^2 - (pi*m/waveguide_width)^2)*node_list(node2,1));
+                            inc_b = -1i*const*cos(pi*m*node_list(node_rF,2)/waveguide_width)*exp(-1i*sqrt(k^2 - (pi*m/waveguide_width)^2)*node_list(node_rF,1));
+                            
+                        elseif dim == 2
+                            
+                            inc_a = sin(pi*m*node_list(node2,2)/waveguide_width)*exp(-1i*sqrt(k^2 - (pi*m/waveguide_width)^2)*node_list(node2,1));
+                            inc_half = sin(pi*m*halfway_y/waveguide_width)*exp(-1i*sqrt(k^2 - (pi*m/waveguide_width)^2)*node_list(node2,1));
+                            inc_b = sin(pi*m*node_list(node_rF,2)/waveguide_width)*exp(-1i*sqrt(k^2 - (pi*m/waveguide_width)^2)*node_list(node_rF,1));
+                            
+                        end
+                        
                         b_minus_a = node_list(node_rF,2) - node_list(node2,2);
                     else
                         trial_a = basis(current_coords,r,node_list(node_rF,:));
                         trial_half = basis(current_coords,r,[node_list(node_rF,1),halfway_y]);
                         trial_b = basis(current_coords,r,node_list(node2,:));
+                        
+                        if dim == 0
+                            error('you idiot, I haven''t done this yet....')
+                        elseif dim == 1
+                            
+                            const =  sqrt(k^2 - (pi*m/waveguide_width)^2)/(pi*m/waveguide_width)^2;
+                            
+                            inc_a = -1i*const*(pi*m/waveguide_width)*cos(pi*m*node_list(node_rF,2)/waveguide_width)*exp(-1i*sqrt(k^2 - (pi*m/waveguide_width)^2)*node_list(node_rF,1));
+                            inc_half = -1i*const*(pi*m/waveguide_width)*cos(pi*m*halfway_y/waveguide_width)*exp(-1i*sqrt(k^2 - (pi*m/waveguide_width)^2)*node_list(node_rF,1));
+                            inc_b = -1i*const*(pi*m/waveguide_width)*cos(pi*m*node_list(node2,2)/waveguide_width)*exp(-1i*sqrt(k^2 - (pi*m/waveguide_width)^2)*node_list(node2,1));
+                            
+                            
+                        elseif dim == 2
+                           
+                            inc_a = sin(pi*m*node_list(node_rF,2)/waveguide_width)*exp(-1i*sqrt(k^2 - (pi*m/waveguide_width)^2)*node_list(node_rF,1));
+                            inc_half = sin(pi*m*halfway_y/waveguide_width)*exp(-1i*sqrt(k^2 - (pi*m/waveguide_width)^2)*node_list(node_rF,1));
+                            inc_b = sin(pi*m*node_list(node2,2)/waveguide_width)*exp(-1i*sqrt(k^2 - (pi*m/waveguide_width)^2)*node_list(node2,1));
 
-                        inc_a = sin(pi*m*node_list(node_rF,2)/waveguide_width)*exp(-1i*sqrt(k^2 - (pi*m/waveguide_width)^2)*node_list(node_rF,1));
-                        inc_half = sin(pi*m*halfway_y/waveguide_width)*exp(-1i*sqrt(k^2 - (pi*m/waveguide_width)^2)*node_list(node_rF,1));
-                        inc_b = sin(pi*m*node_list(node2,2)/waveguide_width)*exp(-1i*sqrt(k^2 - (pi*m/waveguide_width)^2)*node_list(node2,1));
-
+                        end
                         b_minus_a = node_list(node2,2) - node_list(node_rF,2);
                     end
 
