@@ -9,7 +9,7 @@ function tensor = dielectricTensor(type,const)
     elseif strcmp(type,'constant')
         tensor = const*eye(3);
     else
-        errmsg('The only currently valid tensor types are vacuum and const!')
+        errmsg('The only currently valid tensor types are vacuum and constant!')
     end
 
 end
