@@ -5,7 +5,7 @@
 % Organization: North Carolina State University/Oak Ridge National
 %                                               Laboratory
 % October 2017
-% last update: October 17, 2017
+% last update: October 27, 2017
 
 
 %=============================
@@ -50,7 +50,8 @@ mesh = 'C:/Users/cticenhour/Code/matlab-fem/meshes/waveguide.msh';
 total_bounds = length(boundary_names);
 for i = 1:total_bounds
     eval([boundary_names{i},'_edge_nodes = nonzeros(unique(ismember(boundary_edges(:,3),',num2str(i),').*boundary_edges(:,1:2)));'])
-    eval([boundary_names{i},'_edges = [nonzeros(ismember(boundary_edges(:,3),',num2str(i),').*boundary_edges(:,1)), nonzeros(ismember(boundary_edges(:,3),',num2str(i),').*boundary_edges(:,2))];'])
+    eval([boundary_names{i},'_edges = [nonzeros(ismember(boundary_edges(:,3),',...
+        num2str(i),').*boundary_edges(:,1)), nonzeros(ismember(boundary_edges(:,3),',num2str(i),').*boundary_edges(:,2))];'])
 end
 
 edge_nodes = unique(boundary_edges);
@@ -72,8 +73,8 @@ num_triangles = size(triangle_list,1);
 %   BUILD SYSTEM
 %=============================
 
-% Initialize parts of system KU=F, where U is solution vector for Ey,
-% Ez
+% Initialize parts of system KU=F, where U is solution vecor for all three
+% components
 K = zeros(num_nodes*3,num_nodes*3);
 F = zeros(num_nodes*3,1);
 
@@ -86,23 +87,31 @@ Fy = zeros(num_nodes,1);
 Kz = zeros(num_nodes,num_nodes);
 Fz= zeros(num_nodes,1);
 
-% Weak Form Y
+% Weak Form X
+% Laplacian
+Kx = buildKlaplacian(Kx,triangle_list,node_list,0);
+% Coefficient * Field
+Kx = buildKcoeff(Kx,triangle_list,node_list,0,k0);
+% Right hand source term
+Fx = buildFsource(Fx,triangle_list,node_list,0,source);
 
 % Weak Form Y
-% Term 1 - Laplacian (E_zz + E_yy)
+% Laplacian
 Ky = buildKlaplacian(Ky,triangle_list,node_list,0);
-% Term 2 - Coefficient * Field
+% Coefficient * Field
 Ky = buildKcoeff(Ky,triangle_list,node_list,0,k0);
 % Right hand source term
 Fy = buildFsource(Fy,triangle_list,node_list,0,source);
 
 % Weak Form Z
-% Term 1 - Laplacian (E_zz + E_yy)
+% Laplacian
 Kz = buildKlaplacian(Kz,triangle_list,node_list,0);
-% Term 2 - Coefficient * Field
+% Coefficient * Field
 Kz = buildKcoeff(Kz,triangle_list,node_list,0,k0);
 % Right hand source term
 Fz = buildFsource(Fz,triangle_list,node_list,0,source);
+
+% Boundary Conditions X
 
 % Boundary Conditions Y 
 % Port BC at z = 0
