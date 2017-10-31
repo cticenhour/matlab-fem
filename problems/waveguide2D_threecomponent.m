@@ -5,7 +5,7 @@
 % Organization: North Carolina State University/Oak Ridge National
 %                                               Laboratory
 % October 2017
-% last update: October 27, 2017
+% last update: October 31, 2017
 
 
 %=============================
@@ -88,6 +88,8 @@ Kz = zeros(num_nodes,num_nodes);
 Fz= zeros(num_nodes,1);
 
 % Weak Form X
+% GradDiv
+K = buildKgraddiv(K,triangle_list,node_list,0,0,0);
 % Laplacian
 Kx = buildKlaplacian(Kx,triangle_list,node_list,0);
 % Coefficient * Field
