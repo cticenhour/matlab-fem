@@ -5,7 +5,7 @@
 % Organization: North Carolina State University/Oak Ridge National
 %                                               Laboratory
 % October 2017
-% last update: October 31, 2017
+% last update: November 1, 2017
 
 
 %=============================
@@ -91,29 +91,39 @@ Fz= zeros(num_nodes,1);
 % GradDiv
 K = buildKgraddiv(K,triangle_list,node_list,0,0,0);
 % Laplacian
-Kx = buildKlaplacian(Kx,triangle_list,node_list,0);
+Kx = buildKlaplacian(Kx,triangle_list,node_list,0,0);
 % Coefficient * Field
 Kx = buildKcoeff(Kx,triangle_list,node_list,0,k0);
 % Right hand source term
 Fx = buildFsource(Fx,triangle_list,node_list,0,source);
 
 % Weak Form Y
+% GradDiv
+K = buildKgraddiv(K,triangle_list,node_list,0,1,0);
 % Laplacian
-Ky = buildKlaplacian(Ky,triangle_list,node_list,0);
+Ky = buildKlaplacian(Ky,triangle_list,node_list,0,0);
 % Coefficient * Field
 Ky = buildKcoeff(Ky,triangle_list,node_list,0,k0);
 % Right hand source term
 Fy = buildFsource(Fy,triangle_list,node_list,0,source);
 
 % Weak Form Z
+% GradDiv
+K = buildKgraddiv(K,triangle_list,node_list,0,2,0);
 % Laplacian
-Kz = buildKlaplacian(Kz,triangle_list,node_list,0);
+Kz = buildKlaplacian(Kz,triangle_list,node_list,0,0);
 % Coefficient * Field
 Kz = buildKcoeff(Kz,triangle_list,node_list,0,k0);
 % Right hand source term
 Fz = buildFsource(Fz,triangle_list,node_list,0,source);
 
 % Boundary Conditions X
+% Port BC at z = 0
+[Kx,Fx] = portBC(Kx,Fx,triangle_list,node_list,port_edges, port_edge_nodes,k0,waveguide_width,0);
+% Absorbing BC at z = 80
+[Kx,Fx] = absorbingBC(Kx,Fx,triangle_list,node_list,exit_edges,exit_edge_nodes,k0,waveguide_width);
+% Natural (E' = 0) condition on walls
+[Kx,Fx] = neumannBC(Kx,Fx,triangle_list,node_list,wall_edges,wall_edge_nodes,k0,waveguide_width,0);
 
 % Boundary Conditions Y 
 % Port BC at z = 0
@@ -131,11 +141,13 @@ Fz = buildFsource(Fz,triangle_list,node_list,0,source);
 % PEC (E = 0) condition on walls
 [Kz,Fz] = pecBC(Kz,Fz,wall_edge_nodes);
 
-K(1:num_nodes,1:num_nodes) = Ky; 
-K((num_nodes+1):(num_nodes*2),(num_nodes+1):(num_nodes*2)) = Kz;
+K(1:num_nodes,1:num_nodes) = K(1:num_nodes,1:num_nodes) + Kx; 
+K((num_nodes+1):(num_nodes*2),(num_nodes+1):(num_nodes*2)) = K((num_nodes+1):(num_nodes*2),(num_nodes+1):(num_nodes*2)) + Ky;
+K((num_nodes*2 + 1):(num_nodes*3),(num_nodes*2+1):(num_nodes*3)) = K((num_nodes*2+1):(num_nodes*3),(num_nodes*2+1):(num_nodes*3)) + Kz;
 
-F(1:num_nodes,1) = Fy;
-F((num_nodes+1):(num_nodes*2),1) = Fz;
+F(1:num_nodes,1) = F(1:num_nodes,1) + Fx;
+F((num_nodes+1):(num_nodes*2),1) = F((num_nodes+1):(num_nodes*2),1) + Fy;
+F((num_nodes*2 + 1):(num_nodes*3),1) = F((num_nodes*2 + 1):(num_nodes*3),1) + Fz;
 
 % Solve system of equations
 U = K\F;

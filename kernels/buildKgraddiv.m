@@ -36,7 +36,7 @@ function K = buildKgraddiv(K,triangle_list,node_list,defined_edge_nodes,componen
 
                 % Determine gradients in YZ from coefficients of basis fxn            
                 [trial_r,gradZ_r,gradY_r] = basis(current_coords,r,centroid);
-                [trial_s,~,~] = basis(current_coords,s,centroid);
+                [trial_s,gradZ_s,gradY_s] = basis(current_coords,s,centroid);
 
                 % Estimate term using one point gaussian quadrature for X,
                 % Y, or Z equation
@@ -56,29 +56,23 @@ function K = buildKgraddiv(K,triangle_list,node_list,defined_edge_nodes,componen
                     errmsg('Set an appropriate component number! (0,1,2)');
                 end
 
+                term = term_x + term_y + term_z;
+                
                 if is_r_defined == 0 && is_s_defined == 0
 
-                     K(node_r,node_s) = K(node_r,node_s) + term_x;
-                     K(node_r+shift,node_s+shift) = K(node_r+shift,node_s+shift) + term_y;
-                     K(node_r+2*shift,node_s+2*shift) = K(node_r+2*shift,node_s+2*shift) + term_z;
+                     K(node_r+component*shift,node_s+component*shift) = K(node_r+component*shift,node_s+component*shift) + term;
 
                     if r ~= s
-                        K(node_s,node_r) = K(node_s,node_r) + term_x;
-                        K(node_s+shift,node_r+shift) = K(node_s+shift,node_r+shift) + term_y;
-                        K(node_s+2*shift,node_r+2*shift) = K(node_s+2*shift,node_r+2*shift) + term_z;
+                        K(node_s+component*shift,node_r+component*shift) = K(node_s+component*shift,node_r+component*shift) + term;
                     end
 
                 elseif is_r_defined == 1 && is_s_defined == 0
 
-                    K(node_s,node_r) = K(node_s,node_r) + term_x;
-                    K(node_s+shift,node_r+shift) = K(node_s+shift,node_r+shift) + term_y;
-                    K(node_s+2*shift,node_r+2*shift) = K(node_s+2*shift,node_r+2*shift) + term_z;              
+                    K(node_s+component*shift,node_r+component*shift) = K(node_s+component*shift,node_r+component*shift) + term;            
 
                 elseif is_r_defined == 0 && is_s_defined == 1
 
-                    K(node_r,node_s) = K(node_r,node_s) + term_x;
-                    K(node_r+shift,node_s+shift) = K(node_r+shift,node_s+shift) + term_y;
-                    K(node_r+2*shift,node_s+2*shift) = K(node_r+2*shift,node_s+2*shift) + term_z;
+                    K(node_r+component*shift,node_s+component*shift) = K(node_r+component*shift,node_s+component*shift) + term;
 
                 end
             end
