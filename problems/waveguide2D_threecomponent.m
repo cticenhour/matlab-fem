@@ -17,6 +17,7 @@ phys_constants
 
 waveguide_width = 10;
 waveguide_length = 80;
+waveguide_depth = 20;
 
 num_components = 3;
 dim = 2;
@@ -31,6 +32,8 @@ omega = 2*pi*f;
 k0 = omega/c;
 
 k = k0*(1+1i*0);
+
+k_x = 0;
 
 beta = sqrt(k^2 - (pi/waveguide_width)^2);
 
@@ -89,9 +92,9 @@ Fz= zeros(num_nodes,1);
 
 % Weak Form X
 % GradDiv
-K = buildKgraddiv(K,triangle_list,node_list,0,0,0);
+K = buildKgraddiv(K,triangle_list,node_list,0,0,k_x);
 % Laplacian
-Kx = buildKlaplacian(Kx,triangle_list,node_list,0,0);
+Kx = buildKlaplacian(Kx,triangle_list,node_list,0,k_x);
 % Coefficient * Field
 Kx = buildKcoeff(Kx,triangle_list,node_list,0,k0);
 % Right hand source term
@@ -99,9 +102,9 @@ Fx = buildFsource(Fx,triangle_list,node_list,0,source);
 
 % Weak Form Y
 % GradDiv
-K = buildKgraddiv(K,triangle_list,node_list,0,1,0);
+K = buildKgraddiv(K,triangle_list,node_list,0,1,k_x);
 % Laplacian
-Ky = buildKlaplacian(Ky,triangle_list,node_list,0,0);
+Ky = buildKlaplacian(Ky,triangle_list,node_list,0,k_x);
 % Coefficient * Field
 Ky = buildKcoeff(Ky,triangle_list,node_list,0,k0);
 % Right hand source term
@@ -109,9 +112,9 @@ Fy = buildFsource(Fy,triangle_list,node_list,0,source);
 
 % Weak Form Z
 % GradDiv
-K = buildKgraddiv(K,triangle_list,node_list,0,2,0);
+K = buildKgraddiv(K,triangle_list,node_list,0,2,k_x);
 % Laplacian
-Kz = buildKlaplacian(Kz,triangle_list,node_list,0,0);
+Kz = buildKlaplacian(Kz,triangle_list,node_list,0,k_x);
 % Coefficient * Field
 Kz = buildKcoeff(Kz,triangle_list,node_list,0,k0);
 % Right hand source term
@@ -119,7 +122,7 @@ Fz = buildFsource(Fz,triangle_list,node_list,0,source);
 
 % Boundary Conditions X
 % Port BC at z = 0
-[Kx,Fx] = portBC(Kx,Fx,triangle_list,node_list,port_edges, port_edge_nodes,k0,waveguide_width,0);
+[Kx,Fx] = portBC(Kx,Fx,triangle_list,node_list,port_edges, port_edge_nodes,k0,waveguide_width,waveguide_depth,0);
 % Absorbing BC at z = 80
 [Kx,Fx] = absorbingBC(Kx,Fx,triangle_list,node_list,exit_edges,exit_edge_nodes,k0,waveguide_width);
 % Natural (E' = 0) condition on walls
@@ -127,7 +130,7 @@ Fz = buildFsource(Fz,triangle_list,node_list,0,source);
 
 % Boundary Conditions Y 
 % Port BC at z = 0
-[Ky,Fy] = portBC(Ky,Fy,triangle_list,node_list,port_edges, port_edge_nodes,k0,waveguide_width,1);
+[Ky,Fy] = portBC(Ky,Fy,triangle_list,node_list,port_edges, port_edge_nodes,k0,waveguide_width,waveguide_depth,1);
 % Absorbing BC at z = 80
 [Ky,Fy] = absorbingBC(Ky,Fy,triangle_list,node_list,exit_edges,exit_edge_nodes,k0,waveguide_width);
 % Natural (E' = 0) condition on walls
@@ -135,7 +138,7 @@ Fz = buildFsource(Fz,triangle_list,node_list,0,source);
 
 % Boundary Conditions Z 
 % Port BC at z = 0
-[Kz,Fz] = portBC(Kz,Fz,triangle_list,node_list,port_edges, port_edge_nodes,k0,waveguide_width,2);
+[Kz,Fz] = portBC(Kz,Fz,triangle_list,node_list,port_edges, port_edge_nodes,k0,waveguide_width,waveguide_depth,2);
 % Absorbing BC at z = 80
 [Kz,Fz] = absorbingBC(Kz,Fz,triangle_list,node_list,exit_edges,exit_edge_nodes,k0,waveguide_width);
 % PEC (E = 0) condition on walls
