@@ -22,8 +22,6 @@ waveguide_depth = 20;
 num_components = 3;
 dim = 2;
 
-m = 1;
-
 init_E = 1;
 
 f = 20e6;
@@ -33,7 +31,7 @@ k0 = omega/c;
 
 k = k0*(1+1i*0);
 
-k_x = 0;
+k_x = 0.1571;
 
 beta = sqrt(k^2 - (pi/waveguide_width)^2);
 
@@ -125,8 +123,8 @@ Fz = buildFsource(Fz,triangle_list,node_list,0,source);
 [Kx,Fx] = portBC(Kx,Fx,triangle_list,node_list,port_edges, port_edge_nodes,k0,waveguide_width,waveguide_depth,0);
 % Absorbing BC at z = 80
 [Kx,Fx] = absorbingBC(Kx,Fx,triangle_list,node_list,exit_edges,exit_edge_nodes,k0,waveguide_width);
-% Natural (E' = 0) condition on walls
-[Kx,Fx] = neumannBC(Kx,Fx,triangle_list,node_list,wall_edges,wall_edge_nodes,k0,waveguide_width,0);
+% Dirichlet (E = 0) condition on walls
+[Kx,Fx] = pecBC(Kx,Fx,wall_edge_nodes);
 
 % Boundary Conditions Y 
 % Port BC at z = 0
@@ -156,8 +154,9 @@ F((num_nodes*2 + 1):(num_nodes*3),1) = F((num_nodes*2 + 1):(num_nodes*3),1) + Fz
 U = K\F;
 
 % extract components from solution vector
-Ey = U(1:num_nodes,1);
-Ez = U((num_nodes+1):(num_nodes*2),1);
+Ex = U(1:num_nodes,1);
+Ey = U((num_nodes+1):(num_nodes*2),1);
+Ez = U(((num_nodes*2)+1):(num_nodes*3),1);
 
 
 figure
@@ -224,6 +223,39 @@ view(2)
 axis image
 colorbar
 title('Imaginary part of E_y')
+xlabel('Z (m)')
+ylabel('Y (m)')
+
+figure
+subplot(3,1,1)
+trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),abs(Ex),...
+    'edgecolor','none','facecolor','interp');
+view(2)
+axis image
+colorbar
+title('Magnitude of E_x')
+xlabel('Z (m)')
+ylabel('Y (m)')
+
+% solution real component
+subplot(3,1,2)
+trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),real(Ex),...
+    'edgecolor','none','facecolor','interp');
+view(2)
+axis image
+colorbar
+title('Real part of E_x')
+xlabel('Z (m)')
+ylabel('Y (m)')
+
+% solution imaginary component
+subplot(3,1,3)
+trisurf(triangle_list,node_list(:,1),node_list(:,2),0*node_list(:,1),imag(Ex),...
+    'edgecolor','none','facecolor','interp');
+view(2)
+axis image
+colorbar
+title('Imaginary part of E_x')
 xlabel('Z (m)')
 ylabel('Y (m)')
 
